@@ -1,4 +1,3 @@
-from typing import Optional
 import database.mariadb as db
 from models.balance import Balance
 import cogs.economy.database_queries as queries
