@@ -1,5 +1,4 @@
 from typing import Optional
-import cogs.economy.helpers
 from models.balance import Balance
 
 USER_BALANCES = {}

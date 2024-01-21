@@ -2,9 +2,9 @@ import discord
 from cogs.economy import views
 from discord.ext import commands
 from discord import app_commands
-import cogs.economy.helpers as helpers
 import cogs.economy.embeds as embeds
 from cogs.economy.exceptions import *
+import cogs.economy.helpers as helpers
 
 class Economy(commands.Cog):
     def __init__(self, bot):
