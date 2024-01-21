@@ -10,7 +10,7 @@ class IIWIIBot(commands.Bot):
         super().__init__(command_prefix='< ', intents=discord.Intents.all(), application_id=1198446442013003889, case_insensitive=False)
 
     async def on_ready(self):
-        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name='to her.'))
+        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name='her.'))
         print(f"{self.user} finished init.")
 
     async def setup_hook(self):

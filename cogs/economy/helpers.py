@@ -19,7 +19,8 @@ def get_user_balance(user_id, guild_id) -> Balance:
     db_entry = db.select_one(queries.GET_ECONOMY, (user_id, guild_id))
     if not db_entry:
         balance = insert_user(user_id, guild_id)
-    balance = Balance(db_entry[0],db_entry[1],db_entry[2],db_entry[3])
+    else:
+        balance = Balance(db_entry[0],db_entry[1],db_entry[2],db_entry[3])
     cache.update_user_balance(user_id, guild_id, balance)
     return balance
 
