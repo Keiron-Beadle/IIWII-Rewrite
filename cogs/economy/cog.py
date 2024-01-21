@@ -1,4 +1,5 @@
 import discord
+from cogs.economy import views
 from discord.ext import commands
 from discord import app_commands
 import cogs.economy.helpers as helpers
@@ -14,7 +15,7 @@ class Economy(commands.Cog):
         user_balance = helpers.get_user_balance(interaction.user.id, interaction.guild.id)
         amount_of_currency = helpers.get_user_currency(user_balance, currency)
         embed = embeds.make_balance(interaction.user, interaction.guild, amount_of_currency)
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(view=views.SeeMore(),embed=embed)
 
     @app_commands.command(name='pay', description='Pay someone.')
     async def pay(self, interaction : discord.Interaction, user : discord.User, amount : int, currency : str = "Copium"):

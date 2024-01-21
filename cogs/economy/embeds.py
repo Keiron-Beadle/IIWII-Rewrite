@@ -1,6 +1,6 @@
-from discord import Embed, Colour, Member, Guild
-from models.balance import Balance, Transaction
 import time
+from models.balance import Balance
+from discord import Embed, Colour, Member, Guild
 
 COLOURS = {
     'pay': Colour.green(),
@@ -29,6 +29,26 @@ def make_balance(user : Member, guild : Guild, amount : int) -> Embed:
     embed.set_thumbnail(url=WALLET_ICON_URL)
     embed.add_field(name=f'> {EMOJIS["copium"]} {amount}', value='\u200b', inline=True)
     embed.set_footer(text=f"Guild: {guild.name}")
+    return embed
+
+def get_transaction_body(user : Member, balance : Balance, start : int = 0) -> str:
+    transaction_body = ''
+    if start > len(balance.transactions):
+        return transaction_body
+    for i in range(start, min(start + 10, len(balance.transactions))):
+        transaction = balance.transactions[i]
+        other_user = user.guild.get_member(int(transaction.other_user))
+        other_user_name = other_user.display_name if other_user else '[Deleted User]'
+        if transaction.type == 'pay':
+            transaction_body += f'`{time.ctime(transaction.time)}` - Paid {transaction.amount} {EMOJIS[transaction.currency.lower()]} to {other_user_name}\n'
+        elif transaction.type == 'receive':
+            transaction_body += f'`{time.ctime(transaction.time)}` - Received {transaction.amount} {EMOJIS[transaction.currency.lower()]} from {other_user_name}\n'
+    return transaction_body
+
+def make_full_balance(user : Member, guild : Guild, balance : Balance, start_transasction : int = 0) -> Embed:
+    embed = make_balance(user, guild, balance.copium)
+    transaction_body = get_transaction_body(user, balance, start_transasction)
+    embed.add_field(name='Transactions', value=transaction_body, inline=False)
     return embed
 
 def make_pay(sender : Member, receiver : Member, amount : int, guild : Guild, currency : str = "Copium") -> Embed:

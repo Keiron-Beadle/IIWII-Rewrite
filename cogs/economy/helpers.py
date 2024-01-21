@@ -1,4 +1,5 @@
-import time, json, discord
+import time
+from cogs.economy import cache
 import database.mariadb as db
 from models.balance import Balance, Transaction
 import cogs.economy.database_queries as queries
@@ -12,10 +13,15 @@ def insert_user(user_id, guild_id) -> Balance:
     return Balance(user_id, guild_id, STARTING_COPIUM, BALANCE_JSON)
 
 def get_user_balance(user_id, guild_id) -> Balance:
-    balance = db.select_one(queries.GET_ECONOMY, (user_id,guild_id))
-    if not balance:
-        return insert_user(user_id, guild_id)
-    return Balance(balance[0], balance[1], balance[2], balance[3])
+    balance = cache.get_user_balance(user_id, guild_id)
+    if balance:
+        return balance
+    db_entry = db.select_one(queries.GET_ECONOMY, (user_id, guild_id))
+    if not db_entry:
+        balance = insert_user(user_id, guild_id)
+    balance = Balance(db_entry[0],db_entry[1],db_entry[2],db_entry[3])
+    cache.update_user_balance(user_id, guild_id, balance)
+    return balance
 
 def get_user_currency(balance, currency) -> int:
     if currency.lower() == 'copium':
@@ -37,3 +43,5 @@ def pay(sender_id, receiver_id, guild_id, amount, currency):
     receiver_transactions = BALANCE_JSON.replace('{}',f'{{{receiver_transactions}}}')
     db.execute(queries.UPDATE_ECONOMY, (sender_balance.copium, sender_transactions, sender_id, guild_id))
     db.execute(queries.UPDATE_ECONOMY, (receiver_balance.copium, receiver_transactions, receiver_id, guild_id))
+    cache.update_user_balance(sender_id, guild_id, sender_balance)
+    cache.update_user_balance(receiver_id, guild_id, receiver_balance)
