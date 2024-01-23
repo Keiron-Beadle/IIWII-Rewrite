@@ -1,3 +1,4 @@
+from discord import Colour
 from discord.ui import View
 from cogs.roles import views
 from models.roles import Role
@@ -13,17 +14,28 @@ def get_roles_of_group(guild_id : int, group : str):
         ret.append(Role(db_role[0], db_role[1], db_role[2], db_role[3], db_role[4]))
     return ret
 
-def add_role(ctx, role : str, colour : str, emoji : str, group : str):
+async def add_role(ctx, role : str, colour : str, emoji : str, group : str):
     db.execute(queries.ADD_GUILD_ROLE, (ctx.guild.id, role, colour, emoji, group))
+    bRoleExists = False
+    for guild_role in ctx.guild.roles:
+        if guild_role.name.lower() == role.lower():
+            bRoleExists = True
+            break
+    if not bRoleExists:
+        await ctx.guild.create_role(reason="IIWII Bot Creating Role", name=role, colour=Colour.from_str(colour), mentionable=True)
 
-def delete_role(ctx, role : str):
+async def delete_role(ctx, role : str):
     db.execute(queries.DELETE_GUILD_ROLE, (ctx.guild.id, role))
+    for guild_role in ctx.guild.roles:
+        if guild_role.name.lower() == role.lower():
+            await guild_role.delete(reason="IIWII Bot Deleting Role")
+            break
 
 async def create_roles(ctx, roles):
     for role in roles:
         bRoleExists = False
         for guild_role in ctx.guild.roles:
-            if guild_role.name == role.name:
+            if guild_role.name.lower() == role.name.lower():
                 bRoleExists = True
                 break
         if not bRoleExists:

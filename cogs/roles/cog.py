@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from cogs.roles import views, helpers
+from discord.ext.commands import Context
 
 class Roles(commands.Cog):
     def __init__(self, bot):
@@ -19,11 +20,11 @@ class Roles(commands.Cog):
         await ctx.message.delete()
         await helpers.add_role(ctx, role, colour, emoji, group)
         msg = await ctx.send(f'Created role {role} with colour {colour} and emoji {emoji}')
-        await msg.delete(5)
+        await msg.delete(delay=5)
 
     @commands.command(name='deleterole', description='Delete a role from the guild.')
-    async def deleterole(self, ctx, role : str):
+    async def deleterole(self, ctx : Context, role : str):
         await ctx.message.delete()
         await helpers.delete_role(ctx, role)
         msg = await ctx.send(f'Deleted role {role}')
-        await msg.delete(5)
+        await msg.delete(delay=5)
