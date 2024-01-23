@@ -21,7 +21,7 @@ class SeeLess(discord.ui.View):
         self.next_button = self.children[2]
         if self.start_transaction == 0:
             self.previous_button.disabled = True
-        if self.start_transaction == len(balance.transactions)-1:
+        if self.start_transaction == len(balance.transactions)-1 or len(balance.transactions) < 10:
             self.next_button.disabled = True
 
     @discord.ui.button(label='Less', style=discord.ButtonStyle.blurple)

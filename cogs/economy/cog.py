@@ -1,10 +1,7 @@
 import discord
-from cogs.economy import views
 from discord.ext import commands
 from discord import app_commands
-import cogs.economy.embeds as embeds
-from cogs.economy.exceptions import *
-import cogs.economy.helpers as helpers
+from cogs.economy import embeds, helpers, views, exceptions
 
 class Economy(commands.Cog):
     def __init__(self, bot):
@@ -21,7 +18,7 @@ class Economy(commands.Cog):
     async def pay(self, interaction : discord.Interaction, user : discord.User, amount : int, currency : str = "Copium"):
         try:
             helpers.pay(interaction.user.id, user.id, interaction.guild.id, amount, currency)
-        except NotEnoughMoney:
+        except exceptions.NotEnoughMoney:
             return await interaction.response.send_message('You don\'t have enough money to do that.', ephemeral=True)
         embed = embeds.make_pay(interaction.user, user, amount, interaction.guild, currency)
         await interaction.response.send_message(embed=embed)
