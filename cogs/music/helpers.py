@@ -15,7 +15,7 @@ async def connect_bot_to_voice_channel(interaction : discord.Interaction) -> wav
     player = cast(wavelink.Player, interaction.guild.voice_client)
     if not player:
         try:
-            player = await interaction.user.voice.channel.connect(cls=wavelink.Player)
+            player = await interaction.user.voice.channel.connect(cls=wavelink.Player, self_deaf=True)
         except AttributeError:
             raise Exception('You are not in a voice channel.')
         except discord.ClientException:
@@ -25,7 +25,7 @@ async def connect_bot_to_voice_channel(interaction : discord.Interaction) -> wav
         raise Exception('I am not in your voice channel.')
 
     player.inactive_timeout = 900
-    player.autoplay = wavelink.AutoPlayMode.partial
+    #player.autoplay = wavelink.AutoPlayMode.partial
     return player
     
 async def get_tracks(query : str):
@@ -52,7 +52,8 @@ async def on_play(interaction : discord.Interaction, query : str):
     tracks[0].extras = {'requester': interaction.user.id}
     player.queue.put(tracks[0])
     to_play = player.queue.get()
-    await player.play(to_play)
+    if not player.playing:
+        await player.play(to_play)
     await interaction.response.send_message(f"Added {tracks[0].title} to the queue.")
 
 async def on_track_start(payload : wavelink.TrackStartEventPayload, requester : discord.User):
