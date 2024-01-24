@@ -20,11 +20,5 @@ class IIWIIBot(commands.Bot):
             if extension in desired_cogs:
                 await self.load_extension(extension)
 
-    async def on_message(self, message : discord.Message):
-        if message.author.bot or message.channel.id != 1035018615117844552:
-            return
-        await message.channel.send(f"amp.iiwii.app:27028", reference=message)
-        await self.process_commands(message)
-
 bot = IIWIIBot()
 bot.run(os.getenv('BOT_TOKEN'))
