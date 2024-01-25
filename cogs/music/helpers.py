@@ -44,17 +44,21 @@ async def on_play(interaction : discord.Interaction, query : str):
     if not tracks:
         return await interaction.response.send_message('No tracks found.', ephemeral=True)
     
+    response = ''
     if isinstance(tracks, wavelink.Playlist):
         for track in tracks.tracks:
             track.extras = {'requester': interaction.user.id}
             await player.queue.put_wait(track)
-        return await interaction.response.send_message(f"Added {len(tracks)} tracks to the queue. Starting with {tracks[0].title}.")
-    tracks[0].extras = {'requester': interaction.user.id}
-    player.queue.put(tracks[0])
+            response = f"Added {len(tracks)} tracks to the queue. Starting with {tracks[0].title}."
+    else:
+        tracks[0].extras = {'requester': interaction.user.id}
+        player.queue.put(tracks[0]) 
+        response = f"Added {tracks[0].title} to the queue."
+    
     to_play = player.queue.get()
     if not player.playing:
         await player.play(to_play)
-    await interaction.response.send_message(f"Added {tracks[0].title} to the queue.")
+    await interaction.response.send_message(response)
 
 async def on_track_start(payload : wavelink.TrackStartEventPayload, requester : discord.User):
     embed = embeds.track_started(payload.track, requester)

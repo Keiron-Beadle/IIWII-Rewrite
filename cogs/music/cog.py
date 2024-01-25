@@ -39,22 +39,22 @@ class Music(commands.Cog):
 
     @commands.Cog.listener()
     async def on_wavelink_track_start(self, payload : wavelink.TrackStartEventPayload):
-        requester = self.bot.get_user(payload.track.extras['requester'])
+        requester = self.bot.get_user(payload.track.extras.requester)
         await helpers.on_track_start(payload, requester)
 
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload : wavelink.TrackEndEventPayload):
-        requester = self.bot.get_user(payload.track.extras['requester'])
+        requester = self.bot.get_user(payload.track.extras.requester)
         await helpers.on_track_end(payload, requester)
 
     @commands.Cog.listener()
     async def on_wavelink_track_exception(self, payload : wavelink.TrackExceptionEventPayload):
-        requester = self.bot.get_user(payload.track.extras['requester'])
+        requester = self.bot.get_user(payload.track.extras.requester)
         await helpers.on_track_exception(payload, requester)
 
     @commands.Cog.listener()
     async def on_wavelink_track_stuck(self, payload : wavelink.TrackStuckEventPayload):
-        requester = self.bot.get_user(payload.track.extras['requester'])
+        requester = self.bot.get_user(payload.track.extras.requester)
         await helpers.on_track_stuck(payload, requester)
 
     @commands.Cog.listener()
