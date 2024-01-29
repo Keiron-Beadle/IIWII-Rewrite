@@ -1,7 +1,7 @@
 import discord, wavelink
 from discord.ext import commands
 from discord import app_commands
-from cogs.music import helpers, embeds
+from cogs.music import helpers, cache
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -11,6 +11,9 @@ class Music(commands.Cog):
     async def play(self, interaction : discord.Interaction, query : str):
         await helpers.on_play(interaction, query)
 
+    @app_commands.command(name='summon', description='Summon the bot to your voice channel')
+    async def summon(self, interaction : discord.Interaction):
+        await helpers.on_summon(interaction)
     # @app_commands.command(name='pause', description='Pause the current song')
     # async def pause(self, interaction : discord.Interaction):
     #     await helpers.on_pause(interaction)
@@ -23,16 +26,12 @@ class Music(commands.Cog):
     # async def skip(self, interaction : discord.Interaction):
     #     await helpers.on_skip(interaction)
 
-    # @app_commands.command(name='stop', description='Stop the current song')
-    # async def stop(self, interaction : discord.Interaction):
-    #     await helpers.on_stop(interaction)
-
     # @app_commands.command(name='queue', description='Show the current queue')
     # async def queue(self, interaction : discord.Interaction):
     #     await helpers.on_queue(interaction)
 
     # @app_commands.command(name='loop', description='Loop either the queue or the song.')
-    # async def loop(self, interaction: discord.Interaction, loop_type: str = commands.Option(description='Loop type', choices=['queue', 'track'])):
+    # async def loop(self, interaction: discord.Interaction, loop_type: Literal['queue', 'track', 'none']):
     #     await helpers.on_loop(interaction, loop_type)
 
     # Event listeners
@@ -42,10 +41,10 @@ class Music(commands.Cog):
         requester = self.bot.get_user(payload.track.extras.requester)
         await helpers.on_track_start(payload, requester)
 
-    @commands.Cog.listener()
-    async def on_wavelink_track_end(self, payload : wavelink.TrackEndEventPayload):
-        requester = self.bot.get_user(payload.track.extras.requester)
-        await helpers.on_track_end(payload, requester)
+    # @commands.Cog.listener()
+    # async def on_wavelink_track_end(self, payload : wavelink.TrackEndEventPayload):
+    #     requester = self.bot.get_user(payload.track.extras.requester)
+    #     await helpers.on_track_end(payload, requester)
 
     @commands.Cog.listener()
     async def on_wavelink_track_exception(self, payload : wavelink.TrackExceptionEventPayload):
@@ -60,3 +59,4 @@ class Music(commands.Cog):
     @commands.Cog.listener()
     async def on_wavelink_inactive_player(player : wavelink.Player):
         await player.disconnect()
+        cache.MUSIC_PANELS.pop(player.home, None)
