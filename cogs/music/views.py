@@ -9,7 +9,6 @@ async def get_player(interaction : discord.Interaction) -> wavelink.Player | Non
     return player
 
 async def is_user_in_vc_as_author(interaction : discord.Interaction, author : discord.User) -> bool:
-    #original_response = await interaction.original_response()
     if not author.voice:
         await interaction.response.send_message('Original author not in the voice channel anymore, ask for a new /queue.', ephemeral=True)
         return False
@@ -25,13 +24,12 @@ async def is_user_in_vc_as_author(interaction : discord.Interaction, author : di
     return True
 
 class QueueView(discord.ui.View):
-    def __init__(self, commands, original_interaction, original_author):
+    def __init__(self, commands, original_author):
         super().__init__()
         self.commands = commands
-        self.original_interaction = original_interaction
         self.original_author = original_author
 
-    @discord.ui.button(label='Skip', style=discord.ButtonStyle.gray)
+    @discord.ui.button(emoji='<:next:1200747693086097408>', style=discord.ButtonStyle.gray)
     async def skip(self, interaction : discord.Interaction, button : discord.ui.Button):
         try:
             await get_player(interaction)
@@ -39,4 +37,24 @@ class QueueView(discord.ui.View):
             return await interaction.response.send_message(e, ephemeral=True)
         if not await is_user_in_vc_as_author(interaction, self.original_author):
             return
-        await self.commands["skip"](interaction, self.original_interaction)
+        await self.commands["skip"](interaction)
+
+    @discord.ui.button(emoji='<:loop:1200919712100528209>', style=discord.ButtonStyle.gray)
+    async def loop(self, interaction : discord.Interaction, button : discord.ui.Button):
+        try:
+            await get_player(interaction)
+        except Exception as e:
+            return await interaction.response.send_message(e, ephemeral=True)
+        if not await is_user_in_vc_as_author(interaction, self.original_author):
+            return
+        await self.commands["loop"](interaction)
+
+    @discord.ui.button(emoji='<:refresh:1201680671777755206>', style=discord.ButtonStyle.gray)
+    async def update(self, interaction : discord.Interaction, button : discord.ui.Button):
+        try:
+            await get_player(interaction)
+        except Exception as e:
+            return await interaction.response.send_message(e, ephemeral=True)
+        if not await is_user_in_vc_as_author(interaction, self.original_author):
+            return
+        await self.commands["update"](interaction)

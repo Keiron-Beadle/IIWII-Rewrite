@@ -8,8 +8,9 @@ load_dotenv()
 LAVALINK_HOST = os.getenv('LAVALINK_HOST')
 LAVALINK_PASSWORD = os.getenv('LAVALINK_PASSWORD')
 COMMANDS = {
-    "skip" : lambda interaction, original_interaction : on_skip(interaction, original_interaction),
-    "loop" : lambda interaction : on_loop(interaction)
+    "skip" : lambda interaction : on_skip(interaction),
+    "loop" : lambda interaction : on_loop(interaction),
+    "update" : lambda interaction : on_update(interaction)
 }
 
 async def get_player_in_guild(guild : discord.Guild):
@@ -24,6 +25,11 @@ async def connect_bot_to_voice_channel(interaction : discord.Interaction) -> wav
     if not player:
         try:
             player = await interaction.user.voice.channel.connect(cls=wavelink.Player, self_deaf=True)
+            command_history_embed = embeds.command_history(player, player.queue, interaction.user, get_progress_bar)
+            command_history_view = views.QueueView(COMMANDS, interaction.user)
+            command_history_message = await interaction.channel.send(embed=command_history_embed, view=command_history_view)
+            command_history_thread = await command_history_message.create_thread(name='Command history')
+            cache.MUSIC_PANELS[interaction.guild] = command_history_thread
         except AttributeError:
             raise Exception('You are not in a voice channel.')
         except discord.ClientException:
@@ -47,82 +53,64 @@ async def get_tracks(query : str):
         return None
     return tracks
 
-async def on_queue(interaction : discord.Interaction):
-    player = await get_player_in_guild(interaction.guild)
-    if not player:
-        return await interaction.response.send_message('Bot likely restarted, needs re-connecting to voice channel.', ephemeral=True)
-    embed = embeds.queue(player, player.queue, interaction.user, get_progress_bar=get_progress_bar)
-    view = views.QueueView(COMMANDS, interaction, interaction.user)
-    await interaction.response.send_message(embed=embed, view=view)
-
-async def on_loop(interaction : discord.Interaction, loop_type : str):
+async def on_loop(interaction : discord.Interaction):
     try:
         player = await connect_bot_to_voice_channel(interaction)
     except Exception as e:
         return await interaction.response.send_message(e, ephemeral=True)
-    if loop_type == 'queue':
+    if player.queue.mode == wavelink.QueueMode.loop:
         player.queue.mode = wavelink.QueueMode.loop_all
-    elif loop_type == 'track':
-        player.queue.mode = wavelink.QueueMode.loop
-    else:
+    elif player.queue.mode == wavelink.QueueMode.loop_all:
         player.queue.mode = wavelink.QueueMode.normal
-    embed = embeds.looped(loop_type, interaction.user)
-    await interaction.response.send_message(embed=embed)
+    else:
+        player.queue.mode = wavelink.QueueMode.loop
+    embed = embeds.looped(player.queue.mode, interaction.user)
+    await cache.MUSIC_PANELS[interaction.guild].send(embed=embed)
+    await update_command_history(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
+    await interaction.response.send_message("Updated loop mode.", ephemeral=True, delete_after=1)
 
-async def on_pause(interaction : discord.Interaction):
-    try:
-        player = await connect_bot_to_voice_channel(interaction)
-    except Exception as e:
-        return await interaction.response.send_message(e, ephemeral=True)
-    await player.pause(True)
-    embed = embeds.paused(interaction.user)
-    await interaction.response.send_message(embed=embed)
+async def update_command_history(thread : discord.Thread, player : wavelink.Player, requester : discord.User):
+    embed = embeds.command_history(player, player.queue, requester, get_progress_bar)
+    if thread.starter_message:
+        await thread.starter_message.edit(embed=embed)
 
-async def on_resume(interaction : discord.Interaction):
-    try:
-        player = await connect_bot_to_voice_channel(interaction)
-    except Exception as e:
-        return await interaction.response.send_message(e, ephemeral=True)
-    await player.pause(False)
-    embed = embeds.unpaused(interaction.user)
-    await interaction.response.send_message(embed=embed)
-
-async def on_skip(interaction : discord.Interaction, original_interaction : discord.Interaction):
-    player = on_summon(interaction)
-    if not player:
-        return
+async def on_skip(interaction : discord.Interaction):
+    player = await summon(interaction)
+    if not isinstance(player, wavelink.Player):
+        return await interaction.response.send_message(player, ephemeral=True)
     skipped_song = await player.skip()
     if not skipped_song:
         embed = embeds.no_songs_to_skip(interaction.user)   
     else:
         embed = embeds.skipped_song(skipped_song, interaction.user)
-    await interaction.response.send_message("Skipped song.", ephemeral=True)
-    # original_response = await original_interaction.original_response()
-    # if original_response:
-    #     thread = await original_response.create_thread(name='Command history')
-    #     await thread.send(embed=embed)
+    await interaction.response.send_message("Skipped song.", ephemeral=True, delete_after=1)
+    await update_command_history(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
+    await cache.MUSIC_PANELS[interaction.guild].send(embed=embed)
 
-async def summon(interaction : discord.Interaction):
+async def summon(interaction : discord.Interaction) -> wavelink.Player | Exception:
     try:
         player = await connect_bot_to_voice_channel(interaction)
     except Exception as e:
-        return None
-
-
-async def on_summon(interaction : discord.Interaction) -> wavelink.Player:
-    try:
-        player = await connect_bot_to_voice_channel(interaction)
-    except Exception as e:
-        await interaction.response.send_message(e, ephemeral=True)
-        return None
-    await interaction.response.send_message(f"Connected to {interaction.user.voice.channel.mention}.", ephemeral=True)
-    cache.MUSIC_PANELS[interaction.guild] = await interaction.original_response()
+        return e
     return player
 
+async def on_update(interaction : discord.Interaction):
+    player = await summon(interaction)
+    if not isinstance(player, wavelink.Player):
+        return await interaction.response.send_message(player, ephemeral=True)
+    await update_command_history(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
+    await interaction.response.send_message("Updated command panel.", ephemeral=True, delete_after=1)
+
+async def on_summon(interaction : discord.Interaction):
+    player = await summon(interaction)
+    if not isinstance(player, wavelink.Player):
+        return await interaction.response.send_message(player, ephemeral=True)
+    await interaction.response.send_message(f"Connected to {interaction.user.voice.channel.mention}.", ephemeral=True)
+
 async def on_play(interaction : discord.Interaction, query : str):
-    player = on_summon(interaction)
-    if not player:
-        return
+    player = await summon(interaction)
+    if not isinstance(player,wavelink.Player):
+        return await interaction.response.send_message(player, ephemeral=True)
     tracks = await get_tracks(query)
     if not tracks:
         return await interaction.response.send_message('No tracks found.', ephemeral=True)
@@ -139,7 +127,9 @@ async def on_play(interaction : discord.Interaction, query : str):
     
     if not player.playing:
         await player.play(player.queue.get(), volume=30)
-    await interaction.response.send_message(response)
+    await interaction.response.send_message(response, ephemeral=True, delete_after=2)
+    await update_command_history(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
+    await cache.MUSIC_PANELS[interaction.guild].send(response)
 
 async def on_track_start(payload : wavelink.TrackStartEventPayload, requester : discord.User):
     player : wavelink.Player | None = payload.player
@@ -147,7 +137,7 @@ async def on_track_start(payload : wavelink.TrackStartEventPayload, requester : 
         print("Exception in on_track_start: No player.")
         return
     embed = embeds.track_started(payload.track, requester)
-    await player.home.send(embed=embed)
+    await cache.MUSIC_PANELS[player.guild].send(embed=embed)
 
 async def on_track_exception(payload : wavelink.TrackExceptionEventPayload, requester : discord.User):
     player : wavelink.Player | None = payload.player
@@ -155,7 +145,7 @@ async def on_track_exception(payload : wavelink.TrackExceptionEventPayload, requ
         print("Exception in on_track_exception: No player.")
         return
     embed = embeds.track_exception(payload.track, requester)
-    await player.home.send(embed=embed)
+    await cache.MUSIC_PANELS[player.guild].send(embed=embed)
     await payload.player.skip()
 
 async def on_track_stuck(payload : wavelink.TrackStuckEventPayload, requester : discord.User):
@@ -164,7 +154,7 @@ async def on_track_stuck(payload : wavelink.TrackStuckEventPayload, requester : 
         print("Exception in on_track_stuck: No player.")
         return
     embed = embeds.track_stuck(payload.track, requester)
-    await player.home.send(embed=embed)
+    await cache.MUSIC_PANELS[player.guild].send(embed=embed)
     await payload.player.skip()
 
 def get_progress_bar(player : wavelink.Player):

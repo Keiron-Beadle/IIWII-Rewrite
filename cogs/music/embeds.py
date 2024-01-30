@@ -64,10 +64,10 @@ def no_songs_to_skip(requester : discord.User):
     embed.set_author(name=requester.display_name, icon_url=requester.avatar.url)
     return embed
 
-def looped(loop_type : str, requester : discord.User):
-    if loop_type == 'queue':
+def looped(loop_type : wavelink.QueueMode, requester : discord.User):
+    if loop_type == wavelink.QueueMode.loop_all:
         title = 'Looped queue'
-    elif loop_type == 'track':
+    elif loop_type == wavelink.QueueMode.loop:
         title = 'Looped current track'
     else:
         title = 'Unlooped the queue.'
@@ -75,8 +75,8 @@ def looped(loop_type : str, requester : discord.User):
     embed.set_author(name=requester.display_name, icon_url=requester.avatar.url)
     return embed
 
-def queue(player : wavelink.Player, queue : wavelink.Queue, requester : discord.User, get_progress_bar : callable):
-    embed = Embed(title=f'Queue', colour=COLOURS['play'])
+def command_history(player : wavelink.Player, queue : wavelink.Queue, requester : discord.User, get_progress_bar : callable):
+    embed = Embed(title=f'DJ Hub', colour=COLOURS['play'])
     embed.set_author(name=requester.display_name, icon_url=requester.avatar.url)
     if player and player.current:
         title = (player.current.title[:15] + '...') if len(player.current.title) > 15 else player.current.title
@@ -98,6 +98,8 @@ def queue(player : wavelink.Player, queue : wavelink.Queue, requester : discord.
         up_next_duration = time.strftime("%M:%S", time.gmtime(queue[0].length * 1e-3))
     length_gap = ((len(up_next_title)+1) - len(up_next_duration)) // 2
     up_next_duration = f"`{' '*length_gap}{up_next_duration}{' '*length_gap}`"
+    if len(queue) > 0 and queue[0].uri:
+        up_next_duration = f'[{up_next_duration}]({queue[0].uri})'
     embed.add_field(name=f'<:next:1200747693086097408> {up_next_title}', value=up_next_duration, inline=True)
     if queue.mode == wavelink.QueueMode.loop:
         loop_state = 'Track'
