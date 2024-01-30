@@ -75,7 +75,7 @@ def looped(loop_type : wavelink.QueueMode, requester : discord.User):
     embed.set_author(name=requester.display_name, icon_url=requester.avatar.url)
     return embed
 
-def command_history(player : wavelink.Player, queue : wavelink.Queue, requester : discord.User, get_progress_bar : callable):
+def dj_hub(player : wavelink.Player, queue : wavelink.Queue, requester : discord.User, get_progress_bar : callable):
     embed = Embed(title=f'DJ Hub', colour=COLOURS['play'])
     embed.set_author(name=requester.display_name, icon_url=requester.avatar.url)
     if player and player.current:

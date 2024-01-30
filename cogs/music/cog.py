@@ -1,7 +1,7 @@
 import discord, wavelink
 from discord.ext import commands
 from discord import app_commands
-from cogs.music import helpers, cache
+from cogs.music import helpers
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -26,15 +26,11 @@ class Music(commands.Cog):
     # async def on_wavelink_socket_closed(self, payload : wavelink.WebsocketClosedEventPayload):
     #     print(payload)
 
-    # @commands.Cog.listener()
-    # async def on_wavelink_player_update(self, payload : wavelink.PlayerUpdateEventPayload):
-    #     print(payload)
-
-    # @commands.Cog.listener()
-    # async def on_wavelink_track_end(self, payload : wavelink.TrackEndEventPayload):
-    #     if payload.reason == 'stopped':
-    #         player = payload.player
-    #         await player.disconnect()
+    @commands.Cog.listener()
+    async def on_wavelink_player_update(self, payload : wavelink.PlayerUpdateEventPayload):
+        if not payload.connected:
+            guild = payload.player.home
+            await helpers.disconnect(payload.player, guild)
 
     @commands.Cog.listener()
     async def on_wavelink_track_exception(self, payload : wavelink.TrackExceptionEventPayload):
@@ -48,5 +44,5 @@ class Music(commands.Cog):
 
     @commands.Cog.listener()
     async def on_wavelink_inactive_player(player : wavelink.Player):
-        await player.disconnect()
-        cache.MUSIC_PANELS.pop(player.home, None)
+        guild = player.home
+        await helpers.disconnect(player, guild)

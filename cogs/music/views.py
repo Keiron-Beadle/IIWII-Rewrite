@@ -23,9 +23,9 @@ async def is_user_in_vc_as_author(interaction : discord.Interaction, author : di
         return False
     return True
 
-class QueueView(discord.ui.View):
+class DJHub(discord.ui.View):
     def __init__(self, commands, original_author):
-        super().__init__()
+        super().__init__(timeout=None)
         self.commands = commands
         self.original_author = original_author
 

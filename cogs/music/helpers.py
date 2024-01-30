@@ -25,10 +25,10 @@ async def connect_bot_to_voice_channel(interaction : discord.Interaction) -> wav
     if not player:
         try:
             player = await interaction.user.voice.channel.connect(cls=wavelink.Player, self_deaf=True)
-            command_history_embed = embeds.command_history(player, player.queue, interaction.user, get_progress_bar)
-            command_history_view = views.QueueView(COMMANDS, interaction.user)
+            command_history_embed = embeds.dj_hub(player, player.queue, interaction.user, get_progress_bar)
+            command_history_view = views.DJHub(COMMANDS, interaction.user)
             command_history_message = await interaction.channel.send(embed=command_history_embed, view=command_history_view)
-            command_history_thread = await command_history_message.create_thread(name='Command history')
+            command_history_thread = await command_history_message.create_thread(name='Command history', auto_archive_duration=1440)
             cache.MUSIC_PANELS[interaction.guild] = command_history_thread
         except AttributeError:
             raise Exception('You are not in a voice channel.')
@@ -70,7 +70,7 @@ async def on_loop(interaction : discord.Interaction):
     await interaction.response.send_message("Updated loop mode.", ephemeral=True, delete_after=1)
 
 async def update_command_history(thread : discord.Thread, player : wavelink.Player, requester : discord.User):
-    embed = embeds.command_history(player, player.queue, requester, get_progress_bar)
+    embed = embeds.dj_hub(player, player.queue, requester, get_progress_bar)
     if thread.starter_message:
         await thread.starter_message.edit(embed=embed)
 
@@ -130,6 +130,16 @@ async def on_play(interaction : discord.Interaction, query : str):
     await interaction.response.send_message(response, ephemeral=True, delete_after=2)
     await update_command_history(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
     await cache.MUSIC_PANELS[interaction.guild].send(response)
+
+async def disconnect(player : wavelink.Player, guild : discord.Guild):
+    if player:
+        await player.disconnect()
+    guild_thread : discord.Thread = cache.MUSIC_PANELS.pop(guild, None)
+    if guild_thread:
+        try:
+            await guild_thread.delete()
+        except discord.Forbidden:
+            print(f"Forbidden deletion of thread in: {guild.name}")
 
 async def on_track_start(payload : wavelink.TrackStartEventPayload, requester : discord.User):
     player : wavelink.Player | None = payload.player
