@@ -75,7 +75,10 @@ def looped(loop_type : wavelink.QueueMode, requester : discord.User):
     embed.set_author(name=requester.display_name, icon_url=requester.avatar.url)
     return embed
 
-def dj_hub(player : wavelink.Player, queue : wavelink.Queue, requester : discord.User, get_progress_bar : callable):
+def dj_hub(player : wavelink.Player, requester : discord.User, get_progress_bar : callable):
+    queue = []
+    if player:
+        queue = player.queue
     embed = Embed(title=f'DJ Hub', colour=COLOURS['play'])
     embed.set_author(name=requester.display_name, icon_url=requester.avatar.url)
     if player and player.current:
@@ -101,12 +104,14 @@ def dj_hub(player : wavelink.Player, queue : wavelink.Queue, requester : discord
     if len(queue) > 0 and queue[0].uri:
         up_next_duration = f'[{up_next_duration}]({queue[0].uri})'
     embed.add_field(name=f'<:next:1200747693086097408> {up_next_title}', value=up_next_duration, inline=True)
-    if queue.mode == wavelink.QueueMode.loop:
-        loop_state = 'Track'
-    elif queue.mode == wavelink.QueueMode.loop_all:
-        loop_state = 'Queue'
-    else:
-        loop_state = 'Nope'
+    loop_state = ''
+    if queue is not None and hasattr(queue, 'mode'):
+        if queue.mode == wavelink.QueueMode.loop:
+            loop_state = 'Track'
+        elif queue.mode == wavelink.QueueMode.loop_all:
+            loop_state = 'Queue'
+        else:
+            loop_state = 'Nope'
     length_gap = ((len(' Looped?')+2) - len(loop_state)) // 2
     loop_state = f"`{' '*length_gap}{loop_state}{' '*length_gap}`"
     embed.add_field(name='<:loop:1200919712100528209> Looped?', value=loop_state, inline=True)

@@ -10,7 +10,9 @@ LAVALINK_PASSWORD = os.getenv('LAVALINK_PASSWORD')
 COMMANDS = {
     "skip" : lambda interaction : on_skip(interaction),
     "loop" : lambda interaction : on_loop(interaction),
-    "update" : lambda interaction : on_update(interaction)
+    "update" : lambda interaction : on_update(interaction),
+    "shuffle" : lambda interaction : on_shuffle(interaction),
+    "disconnect" : lambda interaction : on_disconnect(interaction)
 }
 
 async def get_player_in_guild(guild : discord.Guild):
@@ -25,7 +27,7 @@ async def connect_bot_to_voice_channel(interaction : discord.Interaction) -> wav
     if not player:
         try:
             player = await interaction.user.voice.channel.connect(cls=wavelink.Player, self_deaf=True)
-            command_history_embed = embeds.dj_hub(player, player.queue, interaction.user, get_progress_bar)
+            command_history_embed = embeds.dj_hub(player, interaction.user, get_progress_bar)
             command_history_view = views.DJHub(COMMANDS, interaction.user)
             command_history_message = await interaction.channel.send(embed=command_history_embed, view=command_history_view)
             command_history_thread = await command_history_message.create_thread(name='Command history', auto_archive_duration=1440)
@@ -66,13 +68,16 @@ async def on_loop(interaction : discord.Interaction):
         player.queue.mode = wavelink.QueueMode.loop
     embed = embeds.looped(player.queue.mode, interaction.user)
     await cache.MUSIC_PANELS[interaction.guild].send(embed=embed)
-    await update_command_history(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
+    await update_dj_panel(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
     await interaction.response.send_message("Updated loop mode.", ephemeral=True, delete_after=1)
 
-async def update_command_history(thread : discord.Thread, player : wavelink.Player, requester : discord.User):
-    embed = embeds.dj_hub(player, player.queue, requester, get_progress_bar)
+async def update_dj_panel(thread : discord.Thread, player : wavelink.Player, requester : discord.User):
+    embed = embeds.dj_hub(player, requester, get_progress_bar)
     if thread.starter_message:
-        await thread.starter_message.edit(embed=embed)
+        if player is None:
+            await thread.starter_message.edit(embed=embed,view=None)
+        else:
+            await thread.starter_message.edit(embed=embed)
 
 async def on_skip(interaction : discord.Interaction):
     player = await summon(interaction)
@@ -84,7 +89,7 @@ async def on_skip(interaction : discord.Interaction):
     else:
         embed = embeds.skipped_song(skipped_song, interaction.user)
     await interaction.response.send_message("Skipped song.", ephemeral=True, delete_after=1)
-    await update_command_history(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
+    await update_dj_panel(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
     await cache.MUSIC_PANELS[interaction.guild].send(embed=embed)
 
 async def summon(interaction : discord.Interaction) -> wavelink.Player | Exception:
@@ -94,11 +99,19 @@ async def summon(interaction : discord.Interaction) -> wavelink.Player | Excepti
         return e
     return player
 
+async def on_shuffle(interaction : discord.Interaction):
+    player = await summon(interaction)
+    if not isinstance(player, wavelink.Player):
+        return await interaction.response.send_message(player, ephemeral=True)
+    player.queue.shuffle()
+    await interaction.response.send_message("Shuffled queue.", ephemeral=True, delete_after=1)
+    await update_dj_panel(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
+
 async def on_update(interaction : discord.Interaction):
     player = await summon(interaction)
     if not isinstance(player, wavelink.Player):
         return await interaction.response.send_message(player, ephemeral=True)
-    await update_command_history(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
+    await update_dj_panel(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
     await interaction.response.send_message("Updated command panel.", ephemeral=True, delete_after=1)
 
 async def on_summon(interaction : discord.Interaction):
@@ -128,8 +141,16 @@ async def on_play(interaction : discord.Interaction, query : str):
     if not player.playing:
         await player.play(player.queue.get(), volume=30)
     await interaction.response.send_message(response, ephemeral=True, delete_after=2)
-    await update_command_history(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
+    await update_dj_panel(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
     await cache.MUSIC_PANELS[interaction.guild].send(response)
+
+async def on_disconnect(interaction : discord.Interaction):
+    player = await summon(interaction)
+    if not isinstance(player, wavelink.Player):
+        return await interaction.response.send_message(player, ephemeral=True)
+    await update_dj_panel(cache.MUSIC_PANELS[interaction.guild], None, interaction.user)
+    await disconnect(player, interaction.guild)
+    await interaction.response.send_message("Disconnected.", ephemeral=True, delete_after=1)
 
 async def disconnect(player : wavelink.Player, guild : discord.Guild):
     if player:
@@ -137,7 +158,7 @@ async def disconnect(player : wavelink.Player, guild : discord.Guild):
     guild_thread : discord.Thread = cache.MUSIC_PANELS.pop(guild, None)
     if guild_thread:
         try:
-            await guild_thread.delete()
+            await guild_thread.edit(locked=True,archived=True)
         except discord.Forbidden:
             print(f"Forbidden deletion of thread in: {guild.name}")
 
@@ -169,6 +190,8 @@ async def on_track_stuck(payload : wavelink.TrackStuckEventPayload, requester : 
 
 def get_progress_bar(player : wavelink.Player):
     progress_bar = ''
+    if not player:
+        return progress_bar
     track = player.current
     if not track:
         return progress_bar
