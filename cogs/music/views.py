@@ -1,7 +1,7 @@
 import discord, wavelink
 import cogs.music.embeds as embeds
 import cogs.music.database_queries as queries
-from models.playlist import Playlist
+#from models.playlist import Playlist
 import database.mariadb as db
 from typing import cast
 import json
@@ -27,57 +27,54 @@ async def is_user_in_vc_as_author(interaction : discord.Interaction, author : di
         return False
     return True
 
-# class AddToPlaylistModal(discord.ui.Modal):
-#     playlists = discord.ui.Select(placeholder="Select playlist(s)")
+class AddToPlaylistSelect(discord.ui.Select):
+    def __init__(self, author_id : int, playlists : dict, song : wavelink.Playable, spawning_interaction : discord.Interaction):
+        super().__init__(placeholder="Select playlist(s)")
+        self.author_id = author_id
+        self.playlists = playlists
+        self.spawning_interaction = spawning_interaction
+        song_title = song.title[:53] if len(song.title) > 53 else song.title
+        self.song = {'title' : song_title, 'uri' : song.uri}
+        index = 0
+        for key,value in playlists.items():
+            self.add_option(label=f'{key} : {len(value)} tracks.', value=index)
+            index+=1
+        self.max_values = len(self.options)
 
-#     def __init__(self, author : discord.User, song : wavelink.Playable):
-#         title = f"Add {(song.title[:22] + '...') if len(song.title) > 25 else song.title} to playlist(s)"
-#         super().__init__(title=title, timeout=180)
-#         self.author = author
-#         self.song = song
-#         playlist_json = db.select_one(queries.GET_USER_PLAYLISTS, (self.author.id,))
-#         if playlist_json:
-#             playlists = Playlist.json_to_list(playlist_json[1])
-#             index = 0
-#             for playlist in playlists:
-#                 self.playlists.add_option(label=f'{playlist.name} : {len(playlist.tracks)} tracks.', value=index)
-#                 index+=1
-#         self.playlists.max_values = len(self.playlists.options)
-
-#     async def on_submit(self, interaction : discord.Interaction):
-#         if len(self.playlists) == 0:
-#             return await interaction.response.send_message("Create a playlist first.", ephemeral=True)
-#         playlists_to_add_to = self.playlists.values
-#         for to_add in playlists_to_add_to:
-#             for playlist in self.playlists:
-#                 if playlist.name == to_add.name:
-#                     playlist.tracks.append(self.song.uri)
-#                     break
-#         outputting_json = Playlist.list_to_json(self.playlists)
-#         db.execute(queries.UPDATE_USER_PLAYLISTS, (outputting_json, self.author.id))
-#         if len(playlists_to_add_to) == 1:
-#             await interaction.response.send_message(f"Added {self.song.title} to {playlists_to_add_to[0]}.", ephemeral=True)
-#         else:
-#             await interaction.response.send_message(f"Added {self.song.title} to {len(playlists_to_add_to)} playlists.", ephemeral=True)
+    async def callback(self, interaction : discord.Interaction):
+        for index in self.values:
+            index = int(index)
+            to_add = self.options[index].label.split(':')[0].strip()
+            for key,value in self.playlists.items():
+                if key.lower() == to_add.lower():
+                    value.append(self.song)
+                    break
+        outputting_json = json.dumps(self.playlists)
+        db.execute(queries.UPDATE_USER_PLAYLISTS, (outputting_json, self.author_id))
+        if len(self.values) == 1:
+            await interaction.response.send_message(f"Added {self.song['title']} to {self.options[int(self.values[0])].label.split(':')[0].strip()}.", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Added {self.song['title']} to {len(self.values)} playlists.", ephemeral=True)
+        await self.spawning_interaction.delete_original_response()
 
 class CreatePlaylistModal(discord.ui.Modal):
     input = discord.ui.TextInput(placeholder="Enter a name", label='Playlist', max_length=25)
 
     def __init__(self, author : discord.User):
-        super().__init__(title=f"Create playlist", timeout=180)
+        super().__init__(title=f"Create playlist", timeout=60)
         self.author = author
 
     async def on_submit(self, interaction : discord.Interaction):
         playlist_json = db.select_one(queries.GET_USER_PLAYLISTS, (self.author.id,))
         if playlist_json:
-            playlists = Playlist.json_to_list(playlist_json[1])
-            playlists.append(Playlist(name=self.input.value, tracks=[]))
-            outputting_json = Playlist.list_to_json(playlists)
+            playlists : dict = json.loads(playlist_json[1])
+            playlists.update({self.input.value : []})
+            outputting_json = json.dumps(playlists)
             db.execute(queries.UPDATE_USER_PLAYLISTS, (outputting_json, self.author.id))
         else:
-            playlists = []
-            playlists.append(Playlist(name=self.input.value, tracks=[]))
-            outputting_json = Playlist.list_to_json(playlists)
+            playlists = {}
+            playlists.update({self.input.value : []})
+            outputting_json = json.dumps(playlists)
             db.execute(queries.INSERT_USER_PLAYLISTS, (self.author.id, outputting_json))    
         await interaction.response.send_message(f'Created playlist {self.input.value}.', ephemeral=True)
 
@@ -149,5 +146,15 @@ class DJHub(discord.ui.View):
             return await interaction.response.send_message(player, ephemeral=True)
         if not player.current:
             return await interaction.response.send_message("No song currently playing.", ephemeral=True)
-        #modal = AddToPlaylistModal(interaction.user, player.current)
-        await interaction.response.send_message("Not implemented yet.", ephemeral=True)
+        
+        playlist_json = db.select_one(queries.GET_USER_PLAYLISTS, (interaction.user.id,))
+        if not playlist_json:
+            return await interaction.response.send_message("Create a playlist first.", ephemeral=True)
+
+        playlists = json.loads(playlist_json[1])
+        select = AddToPlaylistSelect(interaction.user.id, playlists, player.current, interaction)
+        view = discord.ui.View(timeout=60)
+        view.add_item(select)
+
+        song_title = (player.current.title[:22] + '...') if len(player.current.title) > 25 else player.current.title
+        await interaction.response.send_message(f"Adding {song_title} to your selected playlist(s).", view=view, ephemeral=True)

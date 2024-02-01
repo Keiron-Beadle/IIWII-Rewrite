@@ -22,16 +22,6 @@ class Music(commands.Cog):
         requester = self.bot.get_user(payload.track.extras.requester)
         await helpers.on_track_start(payload, requester)
 
-    # @commands.Cog.listener()
-    # async def on_wavelink_socket_closed(self, payload : wavelink.WebsocketClosedEventPayload):
-    #     print(payload)
-
-    #@commands.Cog.listener()
-    #async def on_wavelink_player_update(self, payload : wavelink.PlayerUpdateEventPayload):
-        #if not payload.connected:
-            #guild = payload.player.home
-            #await helpers.disconnect(payload.player, guild)
-
     @commands.Cog.listener()
     async def on_wavelink_track_exception(self, payload : wavelink.TrackExceptionEventPayload):
         requester = self.bot.get_user(payload.track.extras.requester)
