@@ -1,3 +1,4 @@
 import discord
 
-MUSIC_PANELS : dict[discord.Guild, discord.Thread] = {}
+# Maps guild id to a music command history thread.
+MUSIC_PANELS : dict[int, discord.Thread] = {}

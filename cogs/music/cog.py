@@ -33,6 +33,6 @@ class Music(commands.Cog):
         await helpers.on_track_stuck(payload, requester)
 
     @commands.Cog.listener()
-    async def on_wavelink_inactive_player(player : wavelink.Player):
-        guild = player.home
-        await helpers.disconnect(player, guild)
+    async def on_wavelink_inactive_player(self, player : wavelink.Player):
+        guild = player.home.guild
+        await helpers.disconnect(player, guild, self.bot.user)

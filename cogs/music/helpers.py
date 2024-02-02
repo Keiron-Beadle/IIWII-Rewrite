@@ -27,11 +27,12 @@ async def connect_bot_to_voice_channel(interaction : discord.Interaction) -> wav
     if not player:
         try:
             player = await interaction.user.voice.channel.connect(cls=wavelink.Player, self_deaf=True)
+            player.inactive_timeout = 900
             command_history_embed = embeds.dj_hub(player, interaction.user, get_progress_bar)
             command_history_view = views.DJHub(COMMANDS, interaction.user)
             command_history_message = await interaction.channel.send(embed=command_history_embed, view=command_history_view)
             command_history_thread = await command_history_message.create_thread(name='Command history', auto_archive_duration=1440)
-            cache.MUSIC_PANELS[interaction.guild] = command_history_thread
+            cache.MUSIC_PANELS[interaction.guild.id] = command_history_thread
         except AttributeError:
             raise Exception('You are not in a voice channel.')
         except discord.ClientException:
@@ -67,8 +68,8 @@ async def on_loop(interaction : discord.Interaction):
     else:
         player.queue.mode = wavelink.QueueMode.loop
     embed = embeds.looped(player.queue.mode, interaction.user)
-    await cache.MUSIC_PANELS[interaction.guild].send(embed=embed)
-    await update_dj_panel(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
+    await cache.MUSIC_PANELS[interaction.guild.id].send(embed=embed)
+    await update_dj_panel(cache.MUSIC_PANELS[interaction.guild.id], player, interaction.user)
     await interaction.response.send_message("Updated loop mode.", ephemeral=True, delete_after=1)
 
 async def update_dj_panel(thread : discord.Thread, player : wavelink.Player, requester : discord.User):
@@ -89,8 +90,8 @@ async def on_skip(interaction : discord.Interaction):
     else:
         embed = embeds.skipped_song(skipped_song, interaction.user)
     await interaction.response.send_message("Skipped song.", ephemeral=True, delete_after=1)
-    await update_dj_panel(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
-    await cache.MUSIC_PANELS[interaction.guild].send(embed=embed)
+    await update_dj_panel(cache.MUSIC_PANELS[interaction.guild.id], player, interaction.user)
+    await cache.MUSIC_PANELS[interaction.guild.id].send(embed=embed)
 
 async def summon(interaction : discord.Interaction) -> wavelink.Player | Exception:
     try:
@@ -105,13 +106,13 @@ async def on_shuffle(interaction : discord.Interaction):
         return await interaction.response.send_message(player, ephemeral=True)
     player.queue.shuffle()
     await interaction.response.send_message("Shuffled queue.", ephemeral=True, delete_after=1)
-    await update_dj_panel(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
+    await update_dj_panel(cache.MUSIC_PANELS[interaction.guild.id], player, interaction.user)
 
 async def on_update(interaction : discord.Interaction):
     player = await summon(interaction)
     if not isinstance(player, wavelink.Player):
         return await interaction.response.send_message(player, ephemeral=True)
-    await update_dj_panel(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
+    await update_dj_panel(cache.MUSIC_PANELS[interaction.guild.id], player, interaction.user)
     await interaction.response.send_message("Updated command panel.", ephemeral=True, delete_after=1)
 
 async def on_summon(interaction : discord.Interaction):
@@ -141,26 +142,27 @@ async def on_play(interaction : discord.Interaction, query : str):
     if not player.playing:
         await player.play(player.queue.get(), volume=30)
     await interaction.response.send_message(response, ephemeral=True, delete_after=2)
-    await update_dj_panel(cache.MUSIC_PANELS[interaction.guild], player, interaction.user)
-    await cache.MUSIC_PANELS[interaction.guild].send(response)
+    await update_dj_panel(cache.MUSIC_PANELS[interaction.guild.id], player, interaction.user)
+    await cache.MUSIC_PANELS[interaction.guild.id].send(response)
 
 async def on_disconnect(interaction : discord.Interaction):
     player = await summon(interaction)
     if not isinstance(player, wavelink.Player):
         return await interaction.response.send_message(player, ephemeral=True)
-    await update_dj_panel(cache.MUSIC_PANELS[interaction.guild], None, interaction.user)
-    await disconnect(player, interaction.guild)
+    await disconnect(player, interaction.guild, interaction.user)
     await interaction.response.send_message("Disconnected.", ephemeral=True, delete_after=1)
 
-async def disconnect(player : wavelink.Player, guild : discord.Guild):
+async def disconnect(player : wavelink.Player, guild : discord.Guild, user : discord.User):
     if player:
         await player.disconnect()
-    guild_thread : discord.Thread = cache.MUSIC_PANELS.pop(guild, None)
-    if guild_thread:
-        try:
-            await guild_thread.edit(locked=True,archived=True)
-        except discord.Forbidden:
-            print(f"Forbidden deletion of thread in: {guild.name}")
+    guild_thread : discord.Thread = cache.MUSIC_PANELS.pop(guild.id, None)
+    if not guild_thread:
+        return
+    try:
+        await guild_thread.edit(locked=True,archived=True)
+    except discord.Forbidden:
+        print(f"Forbidden deletion of thread in: {guild.name}")
+    await update_dj_panel(guild_thread, None, user)
 
 async def on_track_start(payload : wavelink.TrackStartEventPayload, requester : discord.User):
     player : wavelink.Player | None = payload.player
@@ -168,7 +170,7 @@ async def on_track_start(payload : wavelink.TrackStartEventPayload, requester : 
         print("Exception in on_track_start: No player.")
         return
     embed = embeds.track_started(payload.track, requester)
-    await cache.MUSIC_PANELS[player.guild].send(embed=embed)
+    await cache.MUSIC_PANELS[player.guild.id].send(embed=embed)
 
 async def on_track_exception(payload : wavelink.TrackExceptionEventPayload, requester : discord.User):
     player : wavelink.Player | None = payload.player
@@ -176,7 +178,7 @@ async def on_track_exception(payload : wavelink.TrackExceptionEventPayload, requ
         print("Exception in on_track_exception: No player.")
         return
     embed = embeds.track_exception(payload.track, requester)
-    await cache.MUSIC_PANELS[player.guild].send(embed=embed)
+    await cache.MUSIC_PANELS[player.guild.id].send(embed=embed)
     await payload.player.skip()
 
 async def on_track_stuck(payload : wavelink.TrackStuckEventPayload, requester : discord.User):
@@ -185,7 +187,7 @@ async def on_track_stuck(payload : wavelink.TrackStuckEventPayload, requester : 
         print("Exception in on_track_stuck: No player.")
         return
     embed = embeds.track_stuck(payload.track, requester)
-    await cache.MUSIC_PANELS[player.guild].send(embed=embed)
+    await cache.MUSIC_PANELS[player.guild.id].send(embed=embed)
     await payload.player.skip()
 
 def get_progress_bar(player : wavelink.Player):

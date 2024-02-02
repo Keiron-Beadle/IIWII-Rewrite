@@ -27,6 +27,28 @@ async def is_user_in_vc_as_author(interaction : discord.Interaction, author : di
         return False
     return True
 
+class DeletePlaylistSelect(discord.ui.Select):
+    def __init__(self, author_id : int, playlists : dict, spawning_interaction : discord.Interaction):
+        super().__init__(placeholder="Select playlist(s) to delete")
+        self.author_id = author_id
+        self.playlists = playlists
+        self.spawning_interaction = spawning_interaction
+        index = 0
+        for key,value in playlists.items():
+            self.add_option(label=f'{key} : {len(value)} tracks.', value=index)
+            index+=1
+
+    async def callback(self, interaction : discord.Interaction):
+        to_remove = self.options[int(self.values[0])].label.split(':')[0].strip()
+        for key in self.playlists.keys():
+            if key.lower() == to_remove.lower():
+                self.playlists.pop(key)
+                break
+        outputting_json = json.dumps(self.playlists)
+        db.execute(queries.UPDATE_USER_PLAYLISTS, (outputting_json, self.author_id))
+        await interaction.response.send_message(f"Deleted playlist {self.options[int(self.values[0])].label.split(':')[0].strip()}.", ephemeral=True)
+        await self.spawning_interaction.delete_original_response()
+
 class AddToPlaylistSelect(discord.ui.Select):
     def __init__(self, author_id : int, playlists : dict, song : wavelink.Playable, spawning_interaction : discord.Interaction):
         super().__init__(placeholder="Select playlist(s)")
@@ -138,6 +160,17 @@ class DJHub(discord.ui.View):
     async def create_playlist(self, interaction : discord.Interaction, button : discord.ui.Button):
         modal = CreatePlaylistModal(interaction.user)
         await interaction.response.send_modal(modal)
+
+    @discord.ui.button(emoji='<:DeletePlaylist:1202375368028200962>', style=discord.ButtonStyle.gray)
+    async def delete_playlist(self, interaction : discord.Interaction, button : discord.ui.Button):
+        playlist_json = db.select_one(queries.GET_USER_PLAYLISTS, (interaction.user.id,))
+        if not playlist_json:
+            return await interaction.response.send_message("Create a playlist first.", ephemeral=True)
+        playlists = json.loads(playlist_json[1])
+        select = DeletePlaylistSelect(interaction.user.id, playlists, interaction)
+        view = discord.ui.View(timeout=60)
+        view.add_item(select)
+        await interaction.response.send_message("Select a playlist to delete.", view=view, ephemeral=True)
 
     @discord.ui.button(emoji='<:AddToPlaylist:1202375364396195880>', style=discord.ButtonStyle.gray)
     async def add_to_playlist(self, interaction : discord.Interaction, button : discord.ui.Button):
