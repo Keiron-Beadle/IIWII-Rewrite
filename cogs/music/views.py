@@ -55,8 +55,7 @@ class AddToPlaylistSelect(discord.ui.Select):
         self.author_id = author_id
         self.playlists = playlists
         self.spawning_interaction = spawning_interaction
-        song_title = song.title[:53] if len(song.title) > 53 else song.title
-        self.song = {'title' : song_title, 'uri' : song.uri}
+        self.song = {'title' : song.title, 'uri' : song.uri}
         index = 0
         for key,value in playlists.items():
             self.add_option(label=f'{key} : {len(value)} tracks.', value=index)
@@ -68,7 +67,7 @@ class AddToPlaylistSelect(discord.ui.Select):
             index = int(index)
             to_add = self.options[index].label.split(':')[0].strip()
             for key,value in self.playlists.items():
-                if key.lower() == to_add.lower():
+                if key.lower() == to_add.lower() and len(value) < 75: # TODO Add feedback for failing bc of limit
                     value.append(self.song)
                     break
         outputting_json = json.dumps(self.playlists)
@@ -78,7 +77,7 @@ class AddToPlaylistSelect(discord.ui.Select):
         else:
             await interaction.response.send_message(f"Added {self.song['title']} to {len(self.values)} playlists.", ephemeral=True)
         await self.spawning_interaction.delete_original_response()
-
+        
 class CreatePlaylistModal(discord.ui.Modal):
     input = discord.ui.TextInput(placeholder="Enter a name", label='Playlist', max_length=25)
 
@@ -191,3 +190,11 @@ class DJHub(discord.ui.View):
 
         song_title = (player.current.title[:22] + '...') if len(player.current.title) > 25 else player.current.title
         await interaction.response.send_message(f"Adding {song_title} to your selected playlist(s).", view=view, ephemeral=True)
+
+    @discord.ui.button(emoji='<:RemoveFromPlaylist:1202375372038225980>', style=discord.ButtonStyle.gray)
+    async def remove_from_playlist(self, interaction : discord.Interaction, button : discord.ui.Button):
+        await interaction.response.send_message("Use /removefromplaylist instead.", ephemeral=True)
+
+    @discord.ui.button(emoji='<:UpdatePlaylistDM:1206391712126210048>', style=discord.ButtonStyle.gray)
+    async def update_playlist_dm(self, interaction : discord.Interaction, button : discord.ui.Button):
+        await interaction.response.send_message("Use /updateplaylistdm instead.", ephemeral=True)

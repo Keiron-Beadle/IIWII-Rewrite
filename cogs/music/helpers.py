@@ -1,7 +1,9 @@
-import discord, wavelink, os, time
-from cogs.music import embeds, views, cache
+import discord, wavelink, os, time, json, re
+from cogs.music import embeds, views, cache, database_queries as queries
+from database import mariadb as db
 from typing import cast
 from dotenv import load_dotenv
+from difflib import SequenceMatcher
 
 load_dotenv()
 
@@ -15,35 +17,45 @@ COMMANDS = {
     "disconnect" : lambda interaction : on_disconnect(interaction)
 }
 
+BOT_REFERENCE : discord.Client = None
+
+def set_bot_reference(bot : discord.Client):
+    global BOT_REFERENCE
+    BOT_REFERENCE = bot
+
 async def get_player_in_guild(guild : discord.Guild):
     player : wavelink.Player
     player = cast(wavelink.Player, guild.voice_client)
     return player
 
 async def connect_bot_to_voice_channel(interaction : discord.Interaction) -> wavelink.Player:
-    if not interaction.guild:
+    return await _connect_bot_to_voice_channel(interaction.guild, interaction.user)
+
+async def _connect_bot_to_voice_channel(guild : discord.Guild, user : discord.User) -> wavelink.Player:
+    if not guild:
         return
-    player = await get_player_in_guild(interaction.guild)
+    channel = await get_music_channel(guild.id)
+    player = await get_player_in_guild(guild)
     if not player:
         try:
-            player = await interaction.user.voice.channel.connect(cls=wavelink.Player, self_deaf=True)
+            player = await user.voice.channel.connect(cls=wavelink.Player, self_deaf=True)
             player.inactive_timeout = 900
-            command_history_embed = embeds.dj_hub(player, interaction.user, get_progress_bar)
-            command_history_view = views.DJHub(COMMANDS, interaction.user)
-            command_history_message = await interaction.channel.send(embed=command_history_embed, view=command_history_view)
+            command_history_embed = embeds.dj_hub(player, user, get_progress_bar)
+            command_history_view = views.DJHub(COMMANDS, user)
+            command_history_message = await channel.send(embed=command_history_embed, view=command_history_view)
             command_history_thread = await command_history_message.create_thread(name='Command history', auto_archive_duration=1440)
-            cache.MUSIC_PANELS[interaction.guild.id] = command_history_thread
+            cache.MUSIC_PANELS[guild.id] = command_history_thread
         except AttributeError:
             raise Exception('You are not in a voice channel.')
         except discord.ClientException:
             raise Exception('Unable to join voice channel.')
         
-    if player.channel != interaction.user.voice.channel:
+    if player.channel != user.voice.channel:
         raise Exception('I am not in your voice channel.')
 
     if not hasattr(player, "home"):
-        player.home = interaction.channel
-    elif player.home != interaction.channel:
+        player.home = channel
+    elif player.home != channel:
         raise Exception(f'You can only play music in {player.home.mention}.')
 
     player.inactive_timeout = 900
@@ -55,6 +67,25 @@ async def get_tracks(query : str):
     if not tracks:
         return None
     return tracks
+
+async def on_set_music_channel(interaction : discord.Interaction):
+    current_music_channel = db.select_one(queries.GET_MUSIC_CHANNEL, (interaction.guild.id,))
+    if not current_music_channel:
+        db.execute(queries.INSERT_MUSIC_CHANNEL, (interaction.guild.id, interaction.channel.id))
+    else:
+        db.execute(queries.UPDATE_MUSIC_CHANNEL, (interaction.channel.id, interaction.guild.id))
+    cache.MUSIC_CHANNELS[interaction.guild.id] = interaction.channel
+    return await interaction.response.send_message(f"Set {interaction.channel.mention} as the music channel.", ephemeral=True)
+
+async def get_music_channel(guild_id : int) -> discord.TextChannel:
+    if guild_id in cache.MUSIC_CHANNELS:
+        return cache.MUSIC_CHANNELS[guild_id]
+    music_channel = db.select_one(queries.GET_MUSIC_CHANNEL, (guild_id,))
+    if not music_channel:
+        return None
+    channel = await BOT_REFERENCE.fetch_channel(music_channel[0])
+    cache.MUSIC_CHANNELS[guild_id] = channel
+    return channel
 
 async def on_loop(interaction : discord.Interaction):
     try:
@@ -83,7 +114,7 @@ async def update_dj_panel(thread : discord.Thread, player : wavelink.Player, req
 async def on_skip(interaction : discord.Interaction):
     player = await summon(interaction)
     if not isinstance(player, wavelink.Player):
-        return await interaction.response.send_message(player, ephemeral=True)
+        return await interaction.response.send_message("Couldn't find a player in your channel.", ephemeral=True)
     skipped_song = await player.skip()
     if not skipped_song:
         embed = embeds.no_songs_to_skip(interaction.user)   
@@ -190,6 +221,65 @@ async def on_track_stuck(payload : wavelink.TrackStuckEventPayload, requester : 
     await cache.MUSIC_PANELS[player.guild.id].send(embed=embed)
     await payload.player.skip()
 
+async def on_remove_from_playlist(interaction : discord.Interaction, name : str):
+    playlist_json = db.select_one(queries.GET_USER_PLAYLISTS, (interaction.user.id,))
+    if not playlist_json:
+        return await interaction.response.send_message("Create a playlist first.", ephemeral=True)
+    playlists = json.loads(playlist_json[1])
+    song_name, playlist_name = name.rsplit(' : ',1)
+    for json_playlist_name, tracks in playlists.items():
+        if json_playlist_name[:len(playlist_name)] == playlist_name:
+            for song in tracks:
+                if song['title'][:len(song_name)] == song_name:
+                    tracks.remove(song)
+                    db.execute(queries.UPDATE_USER_PLAYLISTS, (json.dumps(playlists), interaction.user.id))
+                    return await interaction.response.send_message(f"Removed {song_name} from {playlist_name}.", ephemeral=True)
+    return await interaction.response.send_message(f"Failed to remove {song_name} from {playlist_name}.", ephemeral=True)
+
+async def name_autocomplete(interaction : discord.Interaction, current : str):
+    playlist_json = db.select_one(queries.GET_USER_PLAYLISTS, (interaction.user.id,))
+    if not playlist_json:
+        return []
+    playlists = json.loads(playlist_json[1])
+    response = []
+    for playlist_name, tracks in playlists.items():
+        highest_song = ''
+        highest_song_ratio = -1
+        for song in tracks:
+            ratio = SequenceMatcher(None, song['title'], current).ratio()
+            if ratio > highest_song_ratio:
+                highest_song = song['title']
+                highest_song_ratio = ratio
+        if len(highest_song) > 0:
+            playlist_name = playlist_name
+            len_playlist = len(playlist_name)
+            len_song = len(highest_song)
+            if len_playlist > 10:
+                playlist_name = playlist_name[:10]
+            if len_song + len_playlist > 50:
+                highest_song = highest_song[:50-len_playlist]
+            choice = f'{highest_song} : {playlist_name}'
+            response.append(discord.app_commands.Choice(name=choice, value=choice))
+    return response
+            
+async def on_update_playlist_dm(interaction : discord.Interaction, bot : discord.Client):
+    playlist_json = db.select_one(queries.GET_USER_PLAYLISTS, (interaction.user.id,))
+    if not playlist_json:
+        return await interaction.response.send_message("Create a playlist first.", ephemeral=True)
+    playlists = json.loads(playlist_json[1])
+    view = discord.ui.View(timeout=None)
+    for playlist_name in playlists.keys():
+        view.add_item(DynamicPlaylistView(playlist_name, interaction.user.id))
+    bot.add_view(view)
+    await interaction.response.send_message("Sent to your DMs.", ephemeral=True, delete_after=1)
+
+    dm_channel = interaction.user.dm_channel or await interaction.user.create_dm()
+    async for message in dm_channel.history(limit=None):
+        if message.author == bot.user and message.content.startswith('# Your playlists'):
+            await message.delete()
+            break
+    await dm_channel.send('# Your playlists', view=view)
+
 def get_progress_bar(player : wavelink.Player):
     progress_bar = ''
     if not player:
@@ -209,3 +299,81 @@ def get_progress_bar(player : wavelink.Player):
     current_time_str = time.strftime("%M:%S", time.gmtime(current_time * 1e-3))
     total_time_str = time.strftime("%M:%S", time.gmtime(total_time * 1e-3))
     return progress_bar + f'`{current_time_str}/{total_time_str}`'
+
+class DynamicPlaylistView(discord.ui.DynamicItem[discord.ui.Button],
+                      template=r'([\d]*)\u2a0a(.*)',
+                      ):
+
+    def __init__(self, playlist : str, user_id):
+        self.playlist = playlist
+        self.user_id = user_id
+        encoded_str = f'{user_id}\u2a0a{playlist}'
+        super().__init__(discord.ui.Button(style=discord.ButtonStyle.gray, label=playlist, custom_id=encoded_str))
+
+    @classmethod
+    async def from_custom_id(cls, interaction : discord.Interaction, item : discord.ui.Button, match : re.Match[str], /):
+        user_id = int(match.group(1))
+        playlist = match.group(2)
+        return cls(playlist, user_id)
+    
+    async def callback(self, interaction : discord.Interaction):
+        user_voice = None
+        user_member : discord.Member = None
+        for mutual_guild in interaction.user.mutual_guilds:
+            for voice_channel in mutual_guild.voice_channels:
+                for member in voice_channel.members:
+                    if member.id == interaction.user.id:
+                        user_voice = member.voice
+                        user_member = member
+                        break
+                if user_voice:
+                    break
+            if user_voice:
+                break
+
+        if not user_voice or user_voice.suppress:
+            return await interaction.response.send_message("You need to be in a voice channel, and able to speak to do this.", ephemeral=True)
+
+        if not await get_music_channel(user_member.guild.id):
+            return await interaction.response.send_message("Please ask an admin to set the music channel first.", ephemeral=True)
+
+        playlist_json = db.select_one(queries.GET_USER_PLAYLISTS, (self.user_id,))
+        if not playlist_json:
+            return await interaction.response.send_message("Couldn't get your playlist.", ephemeral=True)
+        playlists = json.loads(playlist_json[1])
+        track_data = None
+        for playlist_name, tracks in playlists.items():
+            if playlist_name == self.playlist:
+                track_data = tracks
+                break
+
+        if not track_data:
+            return await interaction.response.send_message(f"Couldn't find any songs in your {self.playlist} playlist.", ephemeral=True)
+
+        try:
+            player = await _connect_bot_to_voice_channel(user_member.guild, user_member)
+        except Exception as e:
+            return await interaction.response.send_message(e, ephemeral=True)
+        
+        added_song_count = 0
+        for song in track_data:
+            tracks = await get_tracks(song['uri'])
+            if not tracks:
+                continue
+            
+            if isinstance(tracks, wavelink.Playlist):
+                for track in tracks.tracks:
+                    track.extras = {'requester': interaction.user.id }
+                    await player.queue.put_wait(track)
+                    added_song_count += 1
+            else:
+                tracks[0].extras = {'requester': interaction.user.id }
+                player.queue.put(tracks[0]) 
+                added_song_count += 1
+
+        response = f"Added {added_song_count} tracks to the queue, from {interaction.user.display_name}'s {self.playlist} playlist."    
+        if not player.playing:
+            await player.play(player.queue.get(), volume=30)
+        await interaction.response.send_message(response, ephemeral=True, delete_after=2)
+        await update_dj_panel(cache.MUSIC_PANELS[user_member.guild.id], player, user_member)
+        await cache.MUSIC_PANELS[user_member.guild.id].send(response)
