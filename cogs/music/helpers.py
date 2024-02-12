@@ -283,6 +283,30 @@ async def on_remove_from_playlist(interaction : discord.Interaction, name : str)
                     return await interaction.response.send_message(f"Removed {song_name} from {playlist_name}.", ephemeral=True)
     return await interaction.response.send_message(f"Failed to remove {song_name} from {playlist_name}.", ephemeral=True)
 
+def weighted_ratio(a, b, prefix_length=5, weight_factor=0.75):
+    """
+    Calculate a weighted similarity ratio between two strings by considering only the prefixes.
+    
+    :param a: First string
+    :param b: Second string
+    :param prefix_length: Length of the prefix to consider (default is 5)
+    :param weight_factor: Weight factor for the front of the strings (default is 0.75)
+    :return: Weighted similarity ratio
+    """
+    prefix_a = a[:prefix_length]
+    prefix_b = b[:prefix_length]
+    
+    matcher = SequenceMatcher(None, prefix_a, prefix_b)
+    ratio = matcher.quick_ratio()
+    
+    # Weighting the ratio based on the length of the strings
+    weighted_ratio = ratio * (min(len(a), len(b)) / max(len(a), len(b)))
+    
+    # Applying additional weight to the front of the strings
+    weighted_ratio *= weight_factor
+    
+    return weighted_ratio
+
 async def name_autocomplete(interaction : discord.Interaction, current : str):
     playlist_json = db.select_one(queries.GET_USER_PLAYLISTS, (interaction.user.id,))
     if not playlist_json:
@@ -293,7 +317,8 @@ async def name_autocomplete(interaction : discord.Interaction, current : str):
         highest_song = ''
         highest_song_ratio = -1
         for song in tracks:
-            ratio = SequenceMatcher(None, song['title'], current).ratio()
+            ratio = weighted_ratio(song['title'].lower(), current.lower())
+            print(f'{song["title"]} : {current} = {ratio}')
             if ratio > highest_song_ratio:
                 highest_song = song['title']
                 highest_song_ratio = ratio
