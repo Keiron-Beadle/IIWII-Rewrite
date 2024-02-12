@@ -23,6 +23,27 @@ def set_bot_reference(bot : discord.Client):
     global BOT_REFERENCE
     BOT_REFERENCE = bot
 
+async def on_voice_state_update(member : discord.Member, before : discord.VoiceState, after : discord.VoiceState, bot : discord.Client):
+    # Update USER_VOICE_CHANNEL cache
+    if member.bot and member.id != bot.user.id:
+        return
+    if after.channel is None:
+        if member.id in cache.USER_VOICE_CHANNELS.keys():
+            cache.USER_VOICE_CHANNELS.pop(member.id)
+    elif after.channel != before.channel or after.channel is not None and before.channel is None:
+        if member.id in cache.USER_VOICE_CHANNELS.keys():
+            cache.USER_VOICE_CHANNELS[member.id] = after.channel.id
+        else:
+            cache.USER_VOICE_CHANNELS.update({member.id : after.channel.id})
+
+    # Check for bot empty vc so we can disconnect the bot.
+    if before.channel != None:
+        for member in before.channel.members:
+            if member.id == bot.user.id and len(before.channel.members) == 1:
+                player = await get_player_in_guild(member.guild)
+                if player:
+                    await disconnect(player, member.guild, bot.user)
+
 async def get_player_in_guild(guild : discord.Guild):
     player : wavelink.Player
     player = cast(wavelink.Player, guild.voice_client)
@@ -176,6 +197,30 @@ async def on_play(interaction : discord.Interaction, query : str):
     await update_dj_panel(cache.MUSIC_PANELS[interaction.guild.id], player, interaction.user)
     await cache.MUSIC_PANELS[interaction.guild.id].send(response)
 
+async def on_add_to_playlist(interaction : discord.Interaction, query : str):
+    tracks = await get_tracks(query)
+    if not tracks:
+        return await interaction.response.send_message('No tracks found.', ephemeral=True)
+    if isinstance(tracks, wavelink.Playlist):
+        return await interaction.response.send_message('Playlists are not supported.', ephemeral=True)
+    playlist_json = db.select_one(queries.GET_USER_PLAYLISTS, (interaction.user.id,))
+    if not playlist_json:
+        return await interaction.response.send_message("Create a playlist first.", ephemeral=True)
+    playlists = json.loads(playlist_json[1])
+    view = discord.ui.View(timeout=180)
+    select = views.AddToPlaylistSelect(interaction.user.id, playlists, tracks[0], interaction)
+    view.add_item(select)
+    await interaction.response.send_message(view=view, ephemeral=True)
+
+async def query_autocomplete(interaction : discord.Interaction, current : str):
+    tracks = await get_tracks(current)
+    if not tracks or len(current) == 0:
+        return []
+    response = []
+    for track in tracks[:10]:
+        response.append(discord.app_commands.Choice(name=track.title, value=track.title))
+    return response
+
 async def on_disconnect(interaction : discord.Interaction):
     player = await summon(interaction)
     if not isinstance(player, wavelink.Player):
@@ -201,7 +246,9 @@ async def on_track_start(payload : wavelink.TrackStartEventPayload, requester : 
         print("Exception in on_track_start: No player.")
         return
     embed = embeds.track_started(payload.track, requester)
-    await cache.MUSIC_PANELS[player.guild.id].send(embed=embed)
+    thread = cache.MUSIC_PANELS[player.guild.id]
+    await update_dj_panel(thread, payload.player, requester)
+    await thread.send(embed=embed)
 
 async def on_track_exception(payload : wavelink.TrackExceptionEventPayload, requester : discord.User):
     player : wavelink.Player | None = payload.player
@@ -319,17 +366,29 @@ class DynamicPlaylistView(discord.ui.DynamicItem[discord.ui.Button],
     async def callback(self, interaction : discord.Interaction):
         user_voice = None
         user_member : discord.Member = None
-        for mutual_guild in interaction.user.mutual_guilds:
-            for voice_channel in mutual_guild.voice_channels:
+        bFoundUser = False
+        if interaction.user.id in cache.USER_VOICE_CHANNELS.keys():
+            voice_channel = BOT_REFERENCE.get_channel(cache.USER_VOICE_CHANNELS[interaction.user.id])
+            if voice_channel:
                 for member in voice_channel.members:
                     if member.id == interaction.user.id:
-                        user_voice = member.voice
                         user_member = member
+                        user_voice = member.voice
+                        bFoundUser = True
+                        break
+        if not bFoundUser:
+            for mutual_guild in interaction.user.mutual_guilds:
+                for voice_channel in mutual_guild.voice_channels:
+                    for member in voice_channel.members:
+                        if member.id == interaction.user.id:
+                            user_voice = member.voice
+                            user_member = member
+                            cache.USER_VOICE_CHANNELS.update({interaction.user.id : voice_channel.id})
+                            break
+                    if user_voice:
                         break
                 if user_voice:
                     break
-            if user_voice:
-                break
 
         if not user_voice or user_voice.suppress:
             return await interaction.response.send_message("You need to be in a voice channel, and able to speak to do this.", ephemeral=True)

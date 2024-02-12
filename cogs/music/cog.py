@@ -24,6 +24,11 @@ class Music(commands.Cog):
             return await interaction.response.send_message("Please ask an admin to set the music channel first.", ephemeral=True)
         await helpers.on_summon(interaction)
 
+    @app_commands.command(name='addtoplaylist', description='Add a song to a playlist.')
+    @app_commands.autocomplete(query=helpers.query_autocomplete)
+    async def addtoplaylist(self, interaction : discord.Interaction, query : str):
+        await helpers.on_add_to_playlist(interaction, query)
+
     @app_commands.command(name='removefromplaylist', description='Remove a song from the playlist')
     @app_commands.autocomplete(name=helpers.name_autocomplete)
     async def removefromplaylist(self, interaction : discord.Interaction, name : str):
@@ -34,6 +39,10 @@ class Music(commands.Cog):
         await helpers.on_update_playlist_dm(interaction, self.bot)
 
     # Event listeners
+        
+    @commands.Cog.listener(name='on_voice_state_update')
+    async def on_voice_state_update(self, member : discord.Member, before : discord.VoiceState, after : discord.VoiceState):
+        await helpers.on_voice_state_update(member, before, after, self.bot)
 
     @commands.Cog.listener()
     async def on_wavelink_track_start(self, payload : wavelink.TrackStartEventPayload):
