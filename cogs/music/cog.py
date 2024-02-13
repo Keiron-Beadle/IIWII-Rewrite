@@ -38,6 +38,14 @@ class Music(commands.Cog):
     async def updateplaylistdm(self, interaction : discord.Interaction):
         await helpers.on_update_playlist_dm(interaction, self.bot)
 
+    @commands.command(name='checkcache')
+    async def checkcache(self, ctx):
+        try:
+            await ctx.message.delete()
+        except:
+            pass
+        await helpers.check_cache(ctx)
+
     # Event listeners
         
     @commands.Cog.listener(name='on_voice_state_update')

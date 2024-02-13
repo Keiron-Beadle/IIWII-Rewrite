@@ -28,11 +28,12 @@ async def is_user_in_vc_as_author(interaction : discord.Interaction, author : di
     return True
 
 class DeletePlaylistSelect(discord.ui.Select):
-    def __init__(self, author_id : int, playlists : dict, spawning_interaction : discord.Interaction):
+    def __init__(self, author_id : int, playlists : dict, spawning_interaction : discord.Interaction, refresh_playlist_dm_func):
         super().__init__(placeholder="Select playlist(s) to delete")
         self.author_id = author_id
         self.playlists = playlists
         self.spawning_interaction = spawning_interaction
+        self.refresh_playlist_dm_func = refresh_playlist_dm_func
         index = 0
         for key,value in playlists.items():
             self.add_option(label=f'{key} : {len(value)} tracks.', value=index)
@@ -48,6 +49,7 @@ class DeletePlaylistSelect(discord.ui.Select):
         db.execute(queries.UPDATE_USER_PLAYLISTS, (outputting_json, self.author_id))
         await interaction.response.send_message(f"Deleted playlist {self.options[int(self.values[0])].label.split(':')[0].strip()}.", ephemeral=True)
         await self.spawning_interaction.delete_original_response()
+        await self.refresh_playlist_dm_func(interaction.user)
 
 class AddToPlaylistSelect(discord.ui.Select):
     def __init__(self, author_id : int, playlists : dict, song : wavelink.Playable, spawning_interaction : discord.Interaction):
@@ -81,9 +83,10 @@ class AddToPlaylistSelect(discord.ui.Select):
 class CreatePlaylistModal(discord.ui.Modal):
     input = discord.ui.TextInput(placeholder="Enter a name", label='Playlist', max_length=25)
 
-    def __init__(self, author : discord.User):
+    def __init__(self, author : discord.User, refresh_playlist_dm_func):
         super().__init__(title=f"Create playlist", timeout=60)
         self.author = author
+        self.refresh_playlist_dm_func = refresh_playlist_dm_func
 
     async def on_submit(self, interaction : discord.Interaction):
         playlist_json = db.select_one(queries.GET_USER_PLAYLISTS, (self.author.id,))
@@ -98,6 +101,7 @@ class CreatePlaylistModal(discord.ui.Modal):
             outputting_json = json.dumps(playlists)
             db.execute(queries.INSERT_USER_PLAYLISTS, (self.author.id, outputting_json))    
         await interaction.response.send_message(f'Created playlist {self.input.value}.', ephemeral=True)
+        await self.refresh_playlist_dm_func(interaction.user)
 
 class DJHub(discord.ui.View):
     def __init__(self, commands, original_author):
@@ -157,7 +161,7 @@ class DJHub(discord.ui.View):
 
     @discord.ui.button(emoji='<:CreatePlaylist:1202375365520130058>', style=discord.ButtonStyle.gray)
     async def create_playlist(self, interaction : discord.Interaction, button : discord.ui.Button):
-        modal = CreatePlaylistModal(interaction.user)
+        modal = CreatePlaylistModal(interaction.user, self.commands["send_playlist_dm"])
         await interaction.response.send_modal(modal)
 
     @discord.ui.button(emoji='<:DeletePlaylist:1202375368028200962>', style=discord.ButtonStyle.gray)
@@ -166,7 +170,7 @@ class DJHub(discord.ui.View):
         if not playlist_json:
             return await interaction.response.send_message("Create a playlist first.", ephemeral=True)
         playlists = json.loads(playlist_json[1])
-        select = DeletePlaylistSelect(interaction.user.id, playlists, interaction)
+        select = DeletePlaylistSelect(interaction.user.id, playlists, interaction, self.commands["send_playlist_dm"])
         view = discord.ui.View(timeout=60)
         view.add_item(select)
         await interaction.response.send_message("Select a playlist to delete.", view=view, ephemeral=True)

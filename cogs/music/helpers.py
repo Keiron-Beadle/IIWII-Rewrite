@@ -4,24 +4,42 @@ from database import mariadb as db
 from typing import cast
 from dotenv import load_dotenv
 from difflib import SequenceMatcher
+from discord.ext.commands import Context
 
 load_dotenv()
 
 LAVALINK_HOST = os.getenv('LAVALINK_HOST')
 LAVALINK_PASSWORD = os.getenv('LAVALINK_PASSWORD')
+BOT_REFERENCE : discord.Client = None
+
 COMMANDS = {
     "skip" : lambda interaction : on_skip(interaction),
     "loop" : lambda interaction : on_loop(interaction),
     "update" : lambda interaction : on_update(interaction),
     "shuffle" : lambda interaction : on_shuffle(interaction),
-    "disconnect" : lambda interaction : on_disconnect(interaction)
+    "disconnect" : lambda interaction : on_disconnect(interaction),
+    "send_playlist_dm" : lambda user : send_new_playlist_dm(user, BOT_REFERENCE)
 }
-
-BOT_REFERENCE : discord.Client = None
 
 def set_bot_reference(bot : discord.Client):
     global BOT_REFERENCE
     BOT_REFERENCE = bot
+
+async def check_cache(context : Context):
+    output = ''
+    for key,value in cache.USER_VOICE_CHANNELS.items():
+        user = context.bot.get_user(key)
+        if not user:
+            user = await context.bot.fetch_user(key)
+        channel = context.bot.get_channel(value)
+        if not channel:
+            channel = await context.bot.fetch_channel(key)
+        if not user or not channel:
+            continue
+        output += '{'  + f'{user.display_name} : {channel.name} : {channel.guild.name}' + '}\n'
+    if len(output) == 0:
+        output = 'Nothing in cache.'
+    await context.send(output)
 
 async def on_voice_state_update(member : discord.Member, before : discord.VoiceState, after : discord.VoiceState, bot : discord.Client):
     # Update USER_VOICE_CHANNEL cache
@@ -284,25 +302,11 @@ async def on_remove_from_playlist(interaction : discord.Interaction, name : str)
     return await interaction.response.send_message(f"Failed to remove {song_name} from {playlist_name}.", ephemeral=True)
 
 def weighted_ratio(a, b, prefix_length=5, weight_factor=0.75):
-    """
-    Calculate a weighted similarity ratio between two strings by considering only the prefixes.
-    
-    :param a: First string
-    :param b: Second string
-    :param prefix_length: Length of the prefix to consider (default is 5)
-    :param weight_factor: Weight factor for the front of the strings (default is 0.75)
-    :return: Weighted similarity ratio
-    """
     prefix_a = a[:prefix_length]
     prefix_b = b[:prefix_length]
-    
     matcher = SequenceMatcher(None, prefix_a, prefix_b)
     ratio = matcher.quick_ratio()
-    
-    # Weighting the ratio based on the length of the strings
     weighted_ratio = ratio * (min(len(a), len(b)) / max(len(a), len(b)))
-    
-    # Applying additional weight to the front of the strings
     weighted_ratio *= weight_factor
     
     return weighted_ratio
@@ -333,24 +337,28 @@ async def name_autocomplete(interaction : discord.Interaction, current : str):
             choice = f'{highest_song} : {playlist_name}'
             response.append(discord.app_commands.Choice(name=choice, value=choice))
     return response
-            
-async def on_update_playlist_dm(interaction : discord.Interaction, bot : discord.Client):
-    playlist_json = db.select_one(queries.GET_USER_PLAYLISTS, (interaction.user.id,))
+
+async def send_new_playlist_dm(user : discord.User, bot : discord.Client) -> bool:
+    playlist_json = db.select_one(queries.GET_USER_PLAYLISTS, (user.id,))
     if not playlist_json:
-        return await interaction.response.send_message("Create a playlist first.", ephemeral=True)
+        return False
     playlists = json.loads(playlist_json[1])
     view = discord.ui.View(timeout=None)
     for playlist_name in playlists.keys():
-        view.add_item(DynamicPlaylistView(playlist_name, interaction.user.id))
+        view.add_item(DynamicPlaylistView(playlist_name, user.id))
     bot.add_view(view)
-    await interaction.response.send_message("Sent to your DMs.", ephemeral=True, delete_after=1)
-
-    dm_channel = interaction.user.dm_channel or await interaction.user.create_dm()
+    dm_channel = user.dm_channel or await user.create_dm()
     async for message in dm_channel.history(limit=None):
         if message.author == bot.user and message.content.startswith('# Your playlists'):
             await message.delete()
             break
     await dm_channel.send('# Your playlists', view=view)
+    return True
+
+async def on_update_playlist_dm(interaction : discord.Interaction, bot : discord.Client):
+    if not await send_new_playlist_dm(interaction.user, bot):
+        return await interaction.response.send_message("Create a playlist first.", ephemeral=True)
+    await interaction.response.send_message("Sent to your DMs.", ephemeral=True, delete_after=1)
 
 def get_progress_bar(player : wavelink.Player):
     progress_bar = ''
