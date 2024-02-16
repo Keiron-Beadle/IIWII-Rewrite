@@ -381,13 +381,13 @@ def get_progress_bar(player : wavelink.Player):
     return progress_bar + f'`{current_time_str}/{total_time_str}`'
 
 class DynamicPlaylistView(discord.ui.DynamicItem[discord.ui.Button],
-                      template=r'([\d]*)\u2a0a(.*)',
+                      template=r'([\d]*)\u2a3b(.*)',
                       ):
 
     def __init__(self, playlist : str, user_id):
         self.playlist = playlist
         self.user_id = user_id
-        encoded_str = f'{user_id}\u2a0a{playlist}'
+        encoded_str = f'{user_id}\u2a3b{playlist}'
         super().__init__(discord.ui.Button(style=discord.ButtonStyle.gray, label=playlist, custom_id=encoded_str))
 
     @classmethod
