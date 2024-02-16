@@ -1,4 +1,4 @@
-import discord, wavelink, os, time, json, re
+import discord, wavelink, os, time, json, re, yt_dlp
 from cogs.music import embeds, views, cache, database_queries as queries
 from database import mariadb as db
 from typing import cast

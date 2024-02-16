@@ -15,6 +15,8 @@ def get_roles_of_group(guild_id : int, group : str):
     return ret
 
 async def add_role(ctx, role : str, colour : str, emoji : str, group : str):
+    if db.select_one(queries.GET_GUILD_ROLE, (ctx.guild.id, role)) is not None:
+        return await ctx.send("Role already exists.")
     db.execute(queries.ADD_GUILD_ROLE, (ctx.guild.id, role, colour, emoji, group))
     bRoleExists = False
     for guild_role in ctx.guild.roles:
