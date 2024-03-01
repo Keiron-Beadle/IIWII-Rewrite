@@ -8,6 +8,7 @@ class Amp(commands.GroupCog, name='amp'):
         self.bot = bot
 
     @app_commands.command(name='servers', description='List all servers that are run by IIWII.')
+    @app_commands.guild_only()
     async def servers(self, interaction : discord.Interaction):
         await interaction.response.defer()
         servers = await helpers.get_server_list()

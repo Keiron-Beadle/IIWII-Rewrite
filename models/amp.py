@@ -20,7 +20,7 @@ class ADSInstanceData:
     def __init__(self, Data : IADSInstance):
         self.installed_ram = Data.Platform.InstalledRAMMB
         self.used_ram = 0
-        self.instances = Data.AvailableInstances
+        self.instances = Data.AvailableInstances[1:] # Discard ADS instance
         self.server_map = AmpInstanceMap()
         for instance in self.instances:
             self.server_map.add_instance(instance)
