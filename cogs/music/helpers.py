@@ -210,7 +210,21 @@ async def on_play(interaction : discord.Interaction, query : str):
         response = f"Added {tracks[0].title} to the queue."
     
     if not player.playing:
-        await player.play(player.queue.get(), volume=30)
+        conn_attempts = 3
+        connected = False
+        while conn_attempts > 0 and not connected:
+            play_attempts = 3
+            while play_attempts > 0:
+                try:
+                    await player.play(player.queue.get(), volume=30)
+                    connected = True
+                    break
+                except Exception as e:
+                    print("Exception in play: " + e)
+                    play_attempts -= 1    
+        if conn_attempts <= 0 and not connected:
+            return await interaction.response.send_message("Failed to play track.", ephemeral=True)
+
     await interaction.response.send_message(response, ephemeral=True, delete_after=2)
     await update_dj_panel(cache.MUSIC_PANELS[interaction.guild.id], player, interaction.user)
     await cache.MUSIC_PANELS[interaction.guild.id].send(response)
