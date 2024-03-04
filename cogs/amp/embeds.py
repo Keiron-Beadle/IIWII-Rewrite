@@ -1,7 +1,11 @@
 import discord, re
 from models.amp import ADSInstanceData
 
-POSSIBLE_ADDRESS_FIELDS = ['Minecraft Server Address', 'Application Address', 'Game Address']
+POSSIBLE_ADDRESS_FIELDS = [
+    'Minecraft Server Address', 
+    'Rust Server Address',
+    'Application Address', 
+    'Game Address']
  
 def find_current_players(instance):
     if instance.Metrics:
@@ -62,4 +66,58 @@ def server_list(user : discord.User, instances : ADSInstanceData):
     empty_emojis = '<:WhiteLine:1198295966055407727>' * empty_count
     ram_chart = line_emojis + empty_emojis
     embed.add_field(name="Memory Usage", value=f"{ram_chart}`[{int(ram_percentage*100)}%]`", inline=False)
+    return embed
+
+def server_start(user : discord.User, server : str):
+    embed = discord.Embed(
+        title='Server Start', 
+        description=f'Successfully started the server: **{server}**.',
+        color=discord.Color.green()
+    )
+    embed.set_author(name = user.display_name, icon_url=user.avatar.url)
+    return embed
+
+def server_start_failed(user : discord.User, server : str, error : Exception):
+    embed = discord.Embed(
+        title='Server Start', 
+        description=f'Failed to start the server: **{server}**. Reason: {type(error).__name__}',
+        color=discord.Color.red()
+    )
+    embed.set_author(name = user.display_name, icon_url=user.avatar.url)
+    return embed
+
+def server_stop(user : discord.User, server : str):
+    embed = discord.Embed(
+        title='Server Stop', 
+        description=f'Successfully stopped the server: **{server}**.',
+        color=discord.Color.green()
+    )
+    embed.set_author(name = user.display_name, icon_url=user.avatar.url)
+    return embed
+
+def server_stop_failed(user : discord.User, server : str, error : Exception):
+    embed = discord.Embed(
+        title='Server Stop', 
+        description=f'Failed to stop the server: **{server}**. Reason: {type(error).__name__}',
+        color=discord.Color.red()
+    )
+    embed.set_author(name = user.display_name, icon_url=user.avatar.url)
+    return embed
+
+def server_restart(user : discord.User, server : str):
+    embed = discord.Embed(
+        title='Server Restart', 
+        description=f'Successfully restarted the server: **{server}**.',
+        color=discord.Color.green()
+    )
+    embed.set_author(name = user.display_name, icon_url=user.avatar.url)
+    return embed
+
+def server_restart_failed(user : discord.User, server : str, error : Exception):
+    embed = discord.Embed(
+        title='Server Restart', 
+        description=f'Failed to restart the server: **{server}**. Reason: {type(error).__name__}',
+        color=discord.Color.red()
+    )
+    embed.set_author(name = user.display_name, icon_url=user.avatar.url)
     return embed
