@@ -1,4 +1,10 @@
+from enum import Enum
 import discord, time
+
+class BrawlStatus(Enum):
+    INACTIVE = 0
+    OPEN = 1
+    ACTIVE = 3
 
 class BrawlRequest:
     def __init__(self, host : discord.User, pot : int, image : str = None):
@@ -7,6 +13,10 @@ class BrawlRequest:
         self.terms = ''
         self.brawl_pot = pot
         self.image = image
+        self.status = BrawlStatus.OPEN
+
+    def set_original_message(self, message : discord.Message):
+        self.original_message = message
 
     def set_title(self, title : str):
         self.title = title
@@ -22,13 +32,15 @@ class BrawlResponse:
 
 class BrawlPreGame:
     def __init__(self, request : BrawlRequest, responder : BrawlResponse):
+        self.title = request.title
         self.player1 = request.host
         self.player2 = responder.responder
         self.terms = responder.terms
-        self.brawl_pot = request.brawl_pot
+        self.brawl_pot = request.brawl_pot * 2
         self.player1_pot = {}
         self.player2_pot = {}
         self.start_time = 0
+        self.image = request.image
 
     def start(self):
         self.start_time = time.time()

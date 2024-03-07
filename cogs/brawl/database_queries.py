@@ -1,5 +1,5 @@
 GET_USER_ACTIVE_BRAWL = f'''SELECT * FROM brawls WHERE host_id = %s OR opponent_id = %s AND status = "active"'''
-ADD_BRAWL = f'''INSERT INTO brawls VALUES (%s, 0, %s, %s, %s, 0, "active", %s, 0, "", 0, "")'''
+ADD_BRAWL = f'''INSERT INTO brawls VALUES (%s, 0, %s, %s, %s, 0, "active", %s, 0, "{{}}", 0, %s)'''
 #               host, opp, title, terms, start, length, status, brawl_pot, voter_pot, voters, winner, image
 GET_USER_BRAWLS = f'''SELECT * FROM brawls WHERE host_id = %s OR opponent_id = %s'''
 GET_USER_BRAWLS_HOST = f'''SELECT * FROM brawls WHERE host_id = %s'''
