@@ -108,11 +108,7 @@ async def get_tracks(query : str):
     return tracks
 
 async def on_set_music_channel(interaction : discord.Interaction):
-    current_music_channel = db.select_one(queries.GET_MUSIC_CHANNEL, (interaction.guild.id,))
-    if not current_music_channel:
-        db.execute(queries.INSERT_MUSIC_CHANNEL, (interaction.guild.id, interaction.channel.id))
-    else:
-        db.execute(queries.UPDATE_MUSIC_CHANNEL, (interaction.channel.id, interaction.guild.id))
+    db.execute(queries.UPDATE_MUSIC_CHANNEL, (interaction.channel.id, interaction.guild.id))
     cache.MUSIC_CHANNELS[interaction.guild.id] = interaction.channel
     return await interaction.response.send_message(f"Set {interaction.channel.mention} as the music channel.", ephemeral=True)
 

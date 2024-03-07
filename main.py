@@ -1,4 +1,5 @@
 import discord, os
+import database.mariadb as db
 from cogs import EXTENSIONS
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -21,4 +22,14 @@ class IIWIIBot(commands.Bot):
                 await self.load_extension(extension)
 
 bot = IIWIIBot()
+
+# Ensure a guild config exists for every guild
+@bot.before_invoke
+async def ensure_guild_config(interaction : discord.Interaction):
+    if not interaction.guild:
+        return True
+    guild_id = interaction.guild.id
+    db.execute('''INSERT IGNORE INTO guild_config VALUES (%s)''', (guild_id,))
+    return True
+
 bot.run(os.getenv('BOT_TOKEN'))
