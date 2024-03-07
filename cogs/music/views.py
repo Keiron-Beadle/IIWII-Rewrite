@@ -1,5 +1,4 @@
 import discord, wavelink
-import cogs.music.embeds as embeds
 import cogs.music.database_queries as queries
 #from models.playlist import Playlist
 import database.mariadb as db

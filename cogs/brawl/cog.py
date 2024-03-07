@@ -7,12 +7,12 @@ from models.brawl import *
 
 class Brawl(commands.GroupCog, name='brawl'):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot : discord.Client = bot
 
     @app_commands.command(name='start', description='Start a new brawl.')
     @app_commands.commands.check(helpers.guild_has_brawl_channel)
     async def start(self, interaction : discord.Interaction, pot : int, image_link : str = None, attachment_image : discord.Attachment = None):
-        brawl_channel = helpers.get_brawl_channel(interaction.guild.id)
+        brawl_channel = self.bot.get_channel(helpers.get_brawl_channel_id(interaction.guild.id))
         await helpers.on_start_brawl(interaction, brawl_channel, pot, image_link, attachment_image)
     
     @app_commands.command(name='setchannel', description='Set the brawl channel for this server.')
