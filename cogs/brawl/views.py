@@ -15,7 +15,8 @@ class BrawlStartBrawlView(discord.ui.View):
 
     @discord.ui.button(label='Start', style=discord.ButtonStyle.green, disabled=True)
     async def start_button(self, interaction : discord.Interaction, button : discord.ui.Button):
-        
+        self.pre_game.start()
+        db.execute(queries.SET_BRAWL_STATUS, (BrawlStatus.ACTIVE.value, self.pre_game.player1.id, self.pre_game.player2.id))
         await interaction.response.send_message('Brawl started.', ephemeral=True, delete_after=1)
         self.stop()
 

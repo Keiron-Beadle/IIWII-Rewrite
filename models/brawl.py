@@ -5,6 +5,7 @@ class BrawlStatus(Enum):
     INACTIVE = 0
     OPEN = 1
     ACTIVE = 3
+    PRE_GAME = 4
 
 class BrawlRequest:
     def __init__(self, host : discord.User, pot : int, image : str = None):
@@ -37,6 +38,7 @@ class BrawlPreGame:
         self.player2 = responder.responder
         self.terms = responder.terms
         self.brawl_pot = request.brawl_pot * 2
+        self.status = BrawlStatus.PRE_GAME
         self.player1_pot = {}
         self.player2_pot = {}
         self.start_time = 0
@@ -44,6 +46,7 @@ class BrawlPreGame:
 
     def start(self):
         self.start_time = time.time()
+        self.status = BrawlStatus.ACTIVE
     
 class BrawlPostGame:
     def __init__(self, pre_game : BrawlPreGame, winner : discord.User):
