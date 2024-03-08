@@ -16,9 +16,6 @@ class BrawlRequest:
         self.image = image
         self.status = BrawlStatus.OPEN
 
-    def set_original_message(self, message : discord.Message):
-        self.original_message = message
-
     def set_title(self, title : str):
         self.title = title
     
@@ -37,6 +34,7 @@ class BrawlPreGame:
         self.player1 = request.host
         self.player2 = responder.responder
         self.terms = responder.terms
+        self.original_terms = request.terms
         self.brawl_pot = request.brawl_pot * 2
         self.status = BrawlStatus.PRE_GAME
         self.player1_pot = {}
