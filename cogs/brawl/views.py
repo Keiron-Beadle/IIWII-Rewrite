@@ -10,7 +10,7 @@ MAX_BRAWL_BET = 99
 POT_TAX = 0.95
 
 def does_user_have_enough_copium(user_id : int, guild_id : int, amount : int):
-    return db.select_one(economy_queries.GET_ECONOMY, (user_id, guild_id))[2] >= amount
+    return economy_helpers.get_user_balance(user_id, guild_id).copium >= amount
 
 def get_voters_json(pre_game : BrawlPreGame):
     player1_json = json.dumps(pre_game.player1_pot)
@@ -28,8 +28,8 @@ class BrawlWinnerView(discord.ui.View):
 
     async def payout(self):
         post_game = BrawlPostGame(self.pre_game, self.winner_according_to_player1)
-        db.execute(queries.UPDATE_BRAWL_FOR_END, (post_game.winner.id, post_game.game_length, self.pre_game.player1.id, self.pre_game.guild.id))
-        economy_helpers.admin_pay(post_game.winner.id, self.pre_game.guild.id, post_game.brawl_pot, 'copium')
+        db.execute(queries.UPDATE_BRAWL_FOR_END, (post_game.winner, post_game.game_length, self.pre_game.player1.id, self.pre_game.guild.id))
+        economy_helpers.admin_pay(post_game.winner, self.pre_game.guild.id, post_game.brawl_pot, 'copium')
         loser_pot = sum(post_game.loser_pot.values())
         loser_pot *= POT_TAX
         winner_pot = sum(post_game.winner_pot.values())
@@ -109,9 +109,9 @@ class BrawlBetModal(discord.ui.Modal):
         
         bet_map = self.pre_game.player1_pot if self.player.id == self.pre_game.player1.id else self.pre_game.player2_pot
     
-        if bet_map[interaction.user.id] and bet_map[interaction.user.id] == MAX_BRAWL_BET:
+        if interaction.user.id in bet_map and bet_map[interaction.user.id] == MAX_BRAWL_BET:
             return await interaction.response.send_message('You have already bet the maximum amount on this brawl.', ephemeral=True)
-        if bet_map[interaction.user.id] and bet_map[interaction.user.id] + amount > MAX_BRAWL_BET:
+        if interaction.user.id in bet_map and bet_map[interaction.user.id] + amount > MAX_BRAWL_BET:
             amount = 99 - bet_map[interaction.user.id]
 
         if not does_user_have_enough_copium(interaction.user.id, interaction.guild.id, amount):
@@ -119,6 +119,7 @@ class BrawlBetModal(discord.ui.Modal):
         
         bet_map[interaction.user.id] = bet_map.get(interaction.user.id, 0) + amount
         json = get_voters_json(self.pre_game)
+        economy_helpers.admin_take(interaction.user.id, interaction.guild.id, amount, 'copium')
         db.execute(queries.SET_BRAWL_VOTERS, (json, self.pre_game.player1.id))
         
         if original_amount != amount:
@@ -147,7 +148,8 @@ class BrawlStartBrawlView(discord.ui.View):
         if interaction.user.id != self.pre_game.player1.id:
             return await interaction.response.send_message("Only the host can start the brawl.", ephemeral=True)
         for modal in self.active_bet_modals:
-            await modal.stop()
+            if modal and not modal.is_finished():
+                await modal.stop()
         self.pre_game.start()
         voters_json = get_voters_json(self.pre_game)
         db.execute(queries.UPDATE_BRAWL_FOR_START,
@@ -195,20 +197,20 @@ class BrawlStartBrawlView(discord.ui.View):
 
     @discord.ui.button(label='Host', style=discord.ButtonStyle.gray, row=1)
     async def host_bet(self, interaction : discord.Interaction, button : discord.ui.Button):
-        #if interaction.user.id == self.pre_game.player1.id or interaction.user.id == self.pre_game.player2.id:
-        #    return await interaction.response.send_message("You cannot bet on a brawl you're in!", ephemeral=True)
-        #if interaction.user.id in self.pre_game.player1_pot or interaction.user.id in self.pre_game.player2_pot:
-        #    return await interaction.response.send_message('You have already bet on this brawl.', ephemeral=True)
+        if interaction.user.id == self.pre_game.player1.id or interaction.user.id == self.pre_game.player2.id:
+            return await interaction.response.send_message("You cannot bet on a brawl you're in!", ephemeral=True)
+        if interaction.user.id in self.pre_game.player2_pot:
+            return await interaction.response.send_message("You cannot bet on the Host when you've bet on the Challenger.", ephemeral=True)
         modal = BrawlBetModal(self.pre_game, self.pre_game.player1, self.original_message, self)
         self.active_bet_modals.append(modal)
         await interaction.response.send_modal(modal)
     
     @discord.ui.button(label='Challenger', style=discord.ButtonStyle.gray, row=1)
     async def challenger_bet(self, interaction : discord.Interaction, button : discord.ui.Button):
-        #if interaction.user.id == self.pre_game.player1.id or interaction.user.id == self.pre_game.player2.id:
-        #    return await interaction.response.send_message("You cannot bet on a brawl you're in!", ephemeral=True)
-        #if interaction.user.id in self.pre_game.player1_pot or interaction.user.id in self.pre_game.player2_pot:
-        #    return await interaction.response.send_message('You have already bet on this brawl.', ephemeral=True)
+        if interaction.user.id == self.pre_game.player1.id or interaction.user.id == self.pre_game.player2.id:
+            return await interaction.response.send_message("You cannot bet on a brawl you're in!", ephemeral=True)
+        if interaction.user.id in self.pre_game.player1_pot:
+            return await interaction.response.send_message("You cannot bet on the Host when you've bet on the Challenger.", ephemeral=True)
         modal = BrawlBetModal(self.pre_game, self.pre_game.player2, self.original_message, self)
         self.active_bet_modals.append(modal)
         await interaction.response.send_modal(modal)

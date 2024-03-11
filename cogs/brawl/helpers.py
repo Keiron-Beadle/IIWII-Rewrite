@@ -2,7 +2,7 @@ import discord
 import database.mariadb as db
 from cogs.brawl import views
 import cogs.brawl.database_queries as queries
-import cogs.economy.database_queries as economy_queries
+import cogs.economy.helpers as economy_helpers
 from models.brawl import BrawlRequest
 
 def get_brawl_channel_id(guild_id : int):
@@ -16,8 +16,8 @@ async def on_start_brawl(interaction : discord.Interaction, brawl_channel_id, po
     if db.select_one(queries.GET_USER_ACTIVE_BRAWL, (interaction.user.id, interaction.user.id, interaction.guild.id)):
         return await interaction.response.send_message('You are already in a brawl.', ephemeral=True)
 
-    user_balance = db.select_one(economy_queries.GET_ECONOMY, (interaction.user.id, interaction.guild.id))[2]
-    if user_balance < pot:
+    user_balance = economy_helpers.get_user_balance(interaction.user.id, interaction.guild.id)
+    if user_balance.copium < pot:
         return await interaction.response.send_message(f'You do not have enough Copium to start this brawl.', ephemeral=True)
 
     if attachment_image:
