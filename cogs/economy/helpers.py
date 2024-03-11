@@ -29,6 +29,25 @@ def get_user_currency(balance, currency) -> int:
         return balance.copium
     return 0
 
+def admin_take(user_id, guild_id, amount, currency):
+    user_balance = get_user_balance(user_id, guild_id)
+    checked_amount = min(user_balance.copium, amount)
+    user_balance.copium -= checked_amount
+    user_balance.transactions.append(Transaction(time.time(), 'pay', 1198446442013003889, currency, checked_amount))
+    user_transactions = Transaction.join_transactions(user_balance.transactions)
+    user_transactions = BALANCE_JSON.replace('{}',f'{{{user_transactions}}}')
+    db.execute(queries.UPDATE_ECONOMY, (user_balance.copium, user_transactions, user_id, guild_id))
+    cache.update_user_balance(user_id, guild_id, user_balance)
+
+def admin_pay(receiver_id, guild_id, amount, currency):
+    receiver_balance = get_user_balance(receiver_id, guild_id)
+    receiver_balance.copium += amount
+    receiver_balance.transactions.append(Transaction(time.time(), 'receive', 1198446442013003889, currency, amount))
+    receiver_transactions = Transaction.join_transactions(receiver_balance.transactions)
+    receiver_transactions = BALANCE_JSON.replace('{}',f'{{{receiver_transactions}}}')
+    db.execute(queries.UPDATE_ECONOMY, (receiver_balance.copium, receiver_transactions, receiver_id, guild_id))
+    cache.update_user_balance(receiver_id, guild_id, receiver_balance)
+
 def pay(sender_id, receiver_id, guild_id, amount, currency):
     sender_balance = get_user_balance(sender_id, guild_id)
     receiver_balance = get_user_balance(receiver_id, guild_id)

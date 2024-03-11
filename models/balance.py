@@ -6,7 +6,7 @@ class Transaction:
         self.type = type
         self.other_user = other_user
         self.currency = currency
-        self.amount = int(amount)
+        self.amount = round(float(amount),2)
 
     def __str__(self):
         return '"%s":{"type":"%s","other_user":"%s","currency":"%s","amount":%s}' % (self.time, self.type, self.other_user, self.currency, self.amount)
@@ -28,5 +28,5 @@ class Balance:
     def __init__(self, id, guild_id, copium, transactions):
         self.id = id
         self.guild_id = guild_id
-        self.copium = copium
+        self.copium = round(float(copium),2)
         self.transactions = json.loads(transactions, object_hook=transaction_decoder)
