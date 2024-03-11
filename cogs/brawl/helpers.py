@@ -12,7 +12,7 @@ async def guild_has_brawl_channel(interaction : discord.Interaction):
     return brawl_channel_id != 0 and interaction.client.get_channel(brawl_channel_id) != None
 
 async def on_start_brawl(interaction : discord.Interaction, brawl_channel_id, pot, image_link, attachment_image):
-    if db.select_one(queries.GET_USER_ACTIVE_BRAWL, (interaction.user.id, interaction.user.id)):
+    if db.select_one(queries.GET_USER_ACTIVE_BRAWL, (interaction.user.id, interaction.user.id, interaction.guild.id)):
         return await interaction.response.send_message('You are already in a brawl.', ephemeral=True)
     if attachment_image:
         image = attachment_image.url
@@ -20,7 +20,7 @@ async def on_start_brawl(interaction : discord.Interaction, brawl_channel_id, po
         image = image_link
     else:
         image = ''
-    request = BrawlRequest(interaction.user, pot, image)
+    request = BrawlRequest(interaction.guild, interaction.user, pot, image)
     modal = views.BrawlRequestModal(request, brawl_channel_id)
     await interaction.response.send_modal(modal)
 

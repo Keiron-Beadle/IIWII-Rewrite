@@ -8,7 +8,8 @@ class BrawlStatus(Enum):
     PRE_GAME = 4
 
 class BrawlRequest:
-    def __init__(self, host : discord.User, pot : int, image : str = None):
+    def __init__(self, guild : discord.Guild, host : discord.User, pot : int, image : str = None):
+        self.guild = guild
         self.host = host
         self.title = ''
         self.terms = ''
@@ -25,12 +26,14 @@ class BrawlRequest:
 class BrawlResponse:
     def __init__(self, request : BrawlRequest, responder : discord.User, responder_terms : list[str]):
         self.request = request
+        self.guild = request.guild
         self.responder = responder
         self.terms = responder_terms
 
 class BrawlPreGame:
     def __init__(self, request : BrawlRequest, responder : BrawlResponse):
         self.title = request.title
+        self.guild = request.guild
         self.player1 = request.host
         self.player2 = responder.responder
         self.terms = responder.terms
@@ -48,9 +51,10 @@ class BrawlPreGame:
     
 class BrawlPostGame:
     def __init__(self, pre_game : BrawlPreGame, winner : discord.User):
+        self.guild = pre_game.guild
         self.winner = pre_game.player1 if winner == pre_game.player1 else pre_game.player2
         self.loser = pre_game.player1 if winner == pre_game.player2 else pre_game.player2
-
+        self.brawl_pot = pre_game.brawl_pot
         self.winner_pot = pre_game.player1_pot if winner == pre_game.player1 else pre_game.player2_pot
         self.loser_pot = pre_game.player1_pot if winner == pre_game.player2 else pre_game.player2_pot
 
