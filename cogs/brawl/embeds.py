@@ -2,11 +2,12 @@ import discord
 from models.brawl import *
 
 def brawl_post_game_embed(post_game : BrawlPostGame):
-    embed = discord.Embed(title=post_game.winner.display_name, 
-                        description=f'{post_game.winner.mention} has won the brawl and taken `{post_game.brawl_pot}`<:copiumcoin:1117202173147750440>.',
+    winner = post_game.get_winner()
+    embed = discord.Embed(title=winner.display_name, 
+                        description=f'{winner.mention} has won the brawl and taken `{post_game.brawl_pot}`<:copiumcoin:1117202173147750440>.',
                         color=0x50ad3e)
     embed.add_field(name='Winner Pot <:copiumcoin:1117202173147750440>', value=f'`  {sum(post_game.winner_pot.values())}  `', inline=True)
-    embed.set_author(name=post_game.winner.display_name, icon_url=post_game.winner.avatar.url)
+    embed.set_author(name=winner.display_name, icon_url=winner.avatar.url)
     return embed
 
 def brawl_started_embed(pre_game : BrawlPreGame):

@@ -4,6 +4,7 @@ from discord import app_commands
 from cogs.brawl import helpers
 import database.mariadb as db
 from models.brawl import *
+from cogs.brawl import embeds
 
 class Brawl(commands.GroupCog, name='brawl'):
     def __init__(self, bot):
@@ -19,6 +20,41 @@ class Brawl(commands.GroupCog, name='brawl'):
     @app_commands.checks.has_permissions(administrator=True)
     async def setchannel(self, interaction : discord.Interaction, text_channel : discord.TextChannel):
         await helpers.on_set_channel(interaction, text_channel)
+
+    @commands.command(name='send_brawl_created')
+    async def send_brawl_created(self, ctx):
+        request = BrawlRequest(817238795966611466, 241716281961742336, 100)
+        await ctx.send(embed=embeds.brawl_created_embed(request))
+
+    @commands.command(name='send_brawl_started')
+    async def send_brawl_started(self, ctx):
+        request = BrawlRequest(817238795966611466, 241716281961742336, 100)
+        ser = self.bot.get_user(241716281961742336)
+        response = BrawlResponse(request, ser, ["hi","helo"])
+        pre_game = BrawlPreGame(request, response)
+        await ctx.send(embed=embeds.brawl_started_embed(pre_game))
+
+    @commands.command(name='send_brawl_cancel_request')
+    async def send_brawl_cancel_request(self, ctx):
+        request = BrawlRequest(817238795966611466, 241716281961742336, 100)
+        await ctx.send(embed=embeds.brawl_request_cancelled_embed(request))
+
+    @commands.command(name='send_pre_game')
+    async def send_pre_game(self, ctx):
+        request = BrawlRequest(817238795966611466, 241716281961742336, 100)
+        ser = self.bot.get_user(241716281961742336)
+        response = BrawlResponse(request, ser, ["hi","helo"])
+        pre_game = BrawlPreGame(request, response)
+        await ctx.send(embed=embeds.brawl_pre_game_embed(pre_game))
+
+    @commands.command(name='send_post_game')
+    async def send_post_game(self, ctx):
+        request = BrawlRequest(817238795966611466, 241716281961742336, 100)
+        ser = self.bot.get_user(241716281961742336)
+        response = BrawlResponse(request, ser, ["hi","helo"])
+        pre_game = BrawlPreGame(request, response)
+        post_game = BrawlPostGame(pre_game, ser)
+        await ctx.send(embed=embeds.brawl_post_game_embed(post_game))
 
     @start.error
     async def start_error(self, interaction, error):
