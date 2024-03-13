@@ -28,8 +28,9 @@ class BrawlWinnerView(discord.ui.View):
 
     async def payout(self):
         post_game = BrawlPostGame(self.pre_game, self.winner_according_to_player1)
+        winner = post_game.get_winner()
         db.execute(queries.UPDATE_BRAWL_FOR_END, (post_game.winner, post_game.game_length, self.pre_game.player1.id, self.pre_game.guild.id))
-        economy_helpers.admin_pay(post_game.winner, self.pre_game.guild.id, post_game.brawl_pot, 'copium')
+        economy_helpers.admin_pay(winner.id, self.pre_game.guild.id, post_game.brawl_pot, 'copium')
         loser_pot = sum(post_game.loser_pot.values())
         loser_pot *= POT_TAX
         winner_pot = sum(post_game.winner_pot.values())
@@ -41,17 +42,22 @@ class BrawlWinnerView(discord.ui.View):
     async def is_brawl_finished(self):
         if not self.winner_according_to_player1 or not self.winner_according_to_player2:
             return False
-        if self.winner_according_to_player1 != self.winner_according_to_player2:
+        ret_value = False
+
+        to_delete = self.messages_to_delete[:100]
+        while len(to_delete) > 0:
+            await self.original_message.channel.delete_messages(to_delete)
+            self.messages_to_delete = self.messages_to_delete[100:]
             to_delete = self.messages_to_delete[:100]
+            
+        if self.winner_according_to_player1 == self.winner_according_to_player2:
+            ret_value = True
+        else:
             await self.original_message.channel.send("The votes are in, but the players have voted for different winners. Agree on a winner to finish the brawl.", delete_after=7)        
-            while len(to_delete) > 0:
-                await self.original_message.channel.delete_messages(to_delete)
-                self.messages_to_delete = self.messages_to_delete[100:]
-                to_delete = self.messages_to_delete[:100]
             self.winner_according_to_player1 = None
             self.winner_according_to_player2 = None
-            return False
-        return True
+    
+        return ret_value
 
     @discord.ui.button(label='Who won?', style=discord.ButtonStyle.grey, disabled=True)
     async def label_button(self, interaction : discord.Interaction, button : discord.ui.Button):

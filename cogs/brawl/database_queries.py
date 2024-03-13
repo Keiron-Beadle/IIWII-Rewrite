@@ -12,7 +12,7 @@ SET_BRAWL_VOTERS = f'''UPDATE brawls SET voters = %s WHERE host_id = %s AND stat
 SET_BRAWL_WINNER = f'''UPDATE brawls SET winner = %s WHERE host_id = %s AND status != "inactive"'''
 SET_BRAWL_LENGTH = f'''UPDATE brawls SET length = %s WHERE host_id = %s AND status != "inactive"'''
 SET_BRAWL_TERMS = f'''UPDATE brawls SET terms = %s WHERE host_id = %s AND status != "inactive"'''
-UPDATE_BRAWL_FOR_START = f'''UPDATE brawls SET brawl_pot = %s, voters = %s, start = %s WHERE host_id = %s AND status != "inactive" AND guild_id = %s'''
+UPDATE_BRAWL_FOR_START = f'''UPDATE brawls SET brawl_pot = %s, voters = %s, start_time = %s WHERE host_id = %s AND status != "inactive" AND guild_id = %s'''
 UPDATE_BRAWL_FOR_END = f'''UPDATE brawls SET winner = %s, length = %s, status = "inactive" WHERE host_id = %s AND status != "inactive" AND guild_id = %s'''
 DELETE_BRAWL = f'''DELETE FROM brawls WHERE host_id = %s AND status != "inactive" AND guild_id = %s'''
 SET_BRAWL_CHANNEL = f'''UPDATE guild_config SET brawl_channel = %s WHERE id = %s'''

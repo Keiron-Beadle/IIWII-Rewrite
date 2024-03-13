@@ -3,28 +3,29 @@ import cogs.economy.cache as cache
 import cogs.economy.embeds as embeds
 
 class SeeMore(discord.ui.View):
-    def __init__(self):
+    def __init__(self, show_iiwii_transactions=False):
         super().__init__()
-        self.show_iiwii_transactions = False
+        self.show_iiwii_transactions = show_iiwii_transactions
+        self.children[1].emoji = '<:Online:1216760320408813598>' if self.show_iiwii_transactions else '<:DoNotDisturb:1216760318022258709>'
 
     @discord.ui.button(label='More', style=discord.ButtonStyle.blurple)
     async def see_more(self, interaction : discord.Interaction, button : discord.ui.Button):
         balance = cache.get_user_balance(interaction.user.id, interaction.guild.id)
         embed = embeds.make_full_balance(interaction.user, interaction.guild, balance, 0, self.show_iiwii_transactions)
-        await interaction.response.edit_message(view=SeeLess(balance), embed=embed)
+        await interaction.response.edit_message(view=SeeLess(balance, self.show_iiwii_transactions), embed=embed)
 
-    @discord.ui.button(label='IIWII', style=discord.ButtonStyle.gray, emoji='<:DoNotDisturb:1216760318022258709>')
+    @discord.ui.button(label='IIWII', style=discord.ButtonStyle.gray, emoji='<:Offline:1216760316508111023>')
     async def toggle_iiwii(self, interaction : discord.Interaction, button : discord.ui.Button):
         self.show_iiwii_transactions = not self.show_iiwii_transactions
-        this_button = discord.ui.Button(self.children[1])
-        this_button.emoji = '<:Offline:1216760316508111023>' if self.show_iiwii_transactions else '<:DoNotDisturb:1216760318022258709>'
+        self.children[1].emoji = '<:Online:1216760320408813598>' if self.show_iiwii_transactions else '<:DoNotDisturb:1216760318022258709>'
         balance = cache.get_user_balance(interaction.user.id, interaction.guild.id)
-        embed = embeds.make_full_balance(interaction.user, interaction.guild, balance, 0, self.show_iiwii_transactions)
+        embed = embeds.make_balance(interaction.user, interaction.guild, balance.copium)
         await interaction.response.edit_message(view=self, embed=embed)
         
 class SeeLess(discord.ui.View):
-    def __init__(self, balance):
+    def __init__(self, balance, show_iiwii_transactions):
         super().__init__()
+        self.show_iiwii_transactions = show_iiwii_transactions
         self.start_transaction = 0
         self.page = 1
         self.previous_button = self.children[1]
@@ -37,7 +38,7 @@ class SeeLess(discord.ui.View):
     @discord.ui.button(label='Less', style=discord.ButtonStyle.blurple)
     async def see_less(self, interaction : discord.Interaction, button : discord.ui.Button):
         embed = embeds.make_balance(interaction.user, interaction.guild, cache.get_user_balance(interaction.user.id, interaction.guild.id).copium)
-        await interaction.response.edit_message(view=SeeMore(), embed=embed)
+        await interaction.response.edit_message(view=SeeMore(self.show_iiwii_transactions), embed=embed)
 
     @discord.ui.button(label='<', style=discord.ButtonStyle.gray)
     async def previous(self, interaction : discord.Interaction, button : discord.ui.Button):

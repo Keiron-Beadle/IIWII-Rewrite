@@ -8,9 +8,11 @@ def brawl_post_game_embed(post_game : BrawlPostGame):
     loser = post_game.get_loser()
     winner_pot = post_game.winner_pot.values()
     summed_loser_pot = sum(post_game.loser_pot.values())
-    
+
     if summed_loser_pot == 0:
         voter_winnings_msg = '```md\n# There is no loser pot to share between the winners\n```'
+    if sum(winner_pot) == 0:
+        voter_winnings_msg = '```md\n# There are no winners to share the loser pot.\n```'
     else:
         voter_winnings_msg = f'```md\n\
             # {summed_loser_pot} copium has been shared between {len(winner_pot)} players\n'

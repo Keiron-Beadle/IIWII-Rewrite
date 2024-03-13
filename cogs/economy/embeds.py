@@ -35,11 +35,11 @@ def get_transaction_body(user : Member, balance : Balance, start : int = 0, show
     transaction_body = ''
     transactions = balance.transactions
     if not show_iiwii_transactions:
-        transactions = [transaction for transaction in transactions if transaction.other_user != '1198446442013003889']
+        transactions = [transaction for transaction in transactions if transaction.other_user != 1198446442013003889]
     if start > len(transactions):
         return transaction_body
-    for i in range(start, min(start + 10, len(transactions))):
-        transaction = transactions[i]
+    reversed_list = reversed(transactions)
+    for transaction in reversed_list:
         other_user = user.guild.get_member(int(transaction.other_user))
         other_user_name = other_user.display_name if other_user else '[Deleted User]'
         if transaction.type == 'pay':

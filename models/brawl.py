@@ -61,7 +61,7 @@ class BrawlPostGame:
         self.winner_pot = pre_game.player1_pot if winner == pre_game.player1 else pre_game.player2_pot
         self.loser_pot = pre_game.player1_pot if winner == pre_game.player2 else pre_game.player2_pot
 
-        self.game_length = pre_game.start_time - time.time()
+        self.game_length = time.time() - pre_game.start_time
 
     def get_winner(self):
         return self.__player1 if self.winner == 1 else self.__player2
