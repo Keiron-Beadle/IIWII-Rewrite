@@ -53,6 +53,7 @@ class BrawlPostGame:
     def __init__(self, pre_game : BrawlPreGame, winner : discord.User):
         self.__player1 = pre_game.player1
         self.__player2 = pre_game.player2
+        self.title = pre_game.title
         self.guild = pre_game.guild
         self.winner = 1 if winner == pre_game.player1 else 2
         self.loser = 2 if winner == pre_game.player1 else 1
@@ -64,3 +65,6 @@ class BrawlPostGame:
 
     def get_winner(self):
         return self.__player1 if self.winner == 1 else self.__player2
+    
+    def get_loser(self):
+        return self.__player1 if self.loser == 1 else self.__player2
