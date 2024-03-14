@@ -60,6 +60,7 @@ class BrawlPostGame:
         self.brawl_pot = pre_game.brawl_pot
         self.winner_pot = pre_game.player1_pot if winner == pre_game.player1 else pre_game.player2_pot
         self.loser_pot = pre_game.player1_pot if winner == pre_game.player2 else pre_game.player2_pot
+        self.status = BrawlStatus.INACTIVE
 
         self.game_length = time.time() - pre_game.start_time
 
