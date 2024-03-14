@@ -28,6 +28,13 @@ def brawl_post_game_embed(post_game : BrawlPostGame):
                         color=0x7de366)
     embed.set_author(name=winner.display_name, icon_url=winner.avatar.url)
     embed.set_thumbnail(url=BRAWL_ICON)
+
+    seconds = post_game.game_length
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    seconds = seconds % 60
+    time_string = f'{hours:02}:{minutes:02}:{seconds:02}' if hours > 0 else f'{minutes:02}:{seconds:02}'
+    embed.set_footer(text=f'This brawl lasted {time_string}.')
     return embed
 
 def brawl_started_embed(pre_game : BrawlPreGame):
