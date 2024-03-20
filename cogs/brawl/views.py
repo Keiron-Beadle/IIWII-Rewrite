@@ -1,9 +1,9 @@
 import discord, json, asyncio
 import cogs.brawl.database_queries as queries
-import cogs.economy.database_queries as economy_queries
 import cogs.economy.helpers as economy_helpers
 import cogs.brawl.embeds as embeds
 import database.mariadb as db
+from cogs.core.helpers import * 
 from models.brawl import *
 
 MAX_BRAWL_BET = 99
@@ -182,10 +182,13 @@ class BrawlStartBrawlView(discord.ui.View):
             request.set_terms(self.pre_game.original_terms)
             request.set_title(self.pre_game.title)
             view = BrawlRequestView(request)
-            msg = await self.original_message.channel.send(embed=embeds.brawl_created_embed(request), view=view)
+            msg = await send_embed_view(self.original_message.channel, embeds.brawl_created_embed(request), view)
+            self.stop()
+            if not msg:
+                return
+                #return await send_ephemeral(interaction, 'I do not have permission to send messages in that channel.')
             view.set_original_message(msg)
             db.execute(queries.ADD_BRAWL,(request.host.id, request.title, '\n'.join(request.terms), request.brawl_pot, request.image))
-            self.stop()
         else:
             return await interaction.response.send_message("You cannot cancel this brawl.", ephemeral=True)
 
@@ -344,10 +347,13 @@ class BrawlRequestModal(discord.ui.Modal):
             return await interaction.response.send_message(f'You do not have enough Copium to start this brawl.', ephemeral=True)
         self.request.set_title(self.title_input.value)
         self.request.set_terms(self.terms_input.value.split('\n'))
+        view = BrawlRequestView(self.request)
+        msg = await send_embed_view(self.channel, embeds.brawl_created_embed(self.request), view)
+        if not msg:
+            return
+            #return await send_ephemeral(interaction, 'I do not have permission to send messages in that channel.')
+        view.set_original_message(msg)
         economy_helpers.admin_take(interaction.user.id, interaction.guild.id, self.request.brawl_pot, 'copium')
         db.execute(queries.ADD_BRAWL,(self.request.guild.id, self.request.host.id, self.request.title, '\n'.join(self.request.terms), self.request.brawl_pot, self.request.image))
         await interaction.response.send_message('Brawl created.', ephemeral=True)
-        view = BrawlRequestView(self.request)
-        msg = await self.channel.send(embed=embeds.brawl_created_embed(self.request), view=view)
-        view.set_original_message(msg)
         self.stop()
