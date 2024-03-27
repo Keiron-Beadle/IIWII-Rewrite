@@ -1,0 +1,11 @@
+SET_STOCK_CHANNEL = f'''UPDATE guild_config SET stock_channel = %s WHERE id = %s'''
+GET_STOCK_CHANNEL = f'''SELECT stock_channel FROM guild_config WHERE id = %s'''
+
+GET_STOCKS = f'''SELECT * FROM stocks'''
+REMOVE_STOCK = f'''DELETE FROM stocks WHERE symbol = %s'''
+ADD_STOCK = f'''INSERT INTO stocks VALUES (%s, %s, %s, %s, %s, %s)'''
+UPDATE_STOCK_PRICE = f'''UPDATE stocks SET price = %s WHERE symbol = %s'''
+UPDATE_STOCK_VOLATILITY = f'''UPDATE stocks SET volatility = %s WHERE symbol = %s'''
+UPDATE_STOCK_INVESTORS = f'''UPDATE stocks SET investors = %s WHERE symbol = %s'''
+UPDATE_STOCK_PRICE_HISTORY = f'''UPDATE stocks SET price_history = %s WHERE symbol = %s'''
+UPDATE_STOCK_PRICE_AND_PRICE_HISTORY = f'''UPDATE stocks SET price = %s, price_history = %s WHERE symbol = %s'''

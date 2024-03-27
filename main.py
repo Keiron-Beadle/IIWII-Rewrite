@@ -5,10 +5,13 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 load_dotenv()
+WINDOWS = 'nt'
 
 class IIWIIBot(commands.Bot):
     def __init__(self):
-        super().__init__(command_prefix='< ', intents=discord.Intents.all(), application_id=1198446442013003889, case_insensitive=False)
+        prefix = '< ' if os.name != WINDOWS else '$ '
+        application_id = 1198446442013003889 if os.name != WINDOWS else 1222279920126918797
+        super().__init__(command_prefix=prefix, intents=discord.Intents.all(), application_id=application_id, case_insensitive=False)
 
     async def on_ready(self):
         await self.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name='her.'))
@@ -29,7 +32,8 @@ async def ensure_guild_config(interaction : discord.Interaction):
     if not interaction.guild:
         return True
     guild_id = interaction.guild.id
-    db.execute('''INSERT IGNORE INTO guild_config VALUES (%s)''', (guild_id,))
+    db.execute('''INSERT IGNORE INTO guild_config (id) VALUES (%s)''', (guild_id,))
     return True
 
-bot.run(os.getenv('BOT_TOKEN'))
+TOKEN_TO_GET = 'BOT_TOKEN' if os.name != WINDOWS else 'TEST_TOKEN'
+bot.run(os.getenv(TOKEN_TO_GET))

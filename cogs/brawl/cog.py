@@ -21,57 +21,6 @@ class Brawl(commands.GroupCog, name='brawl'):
     async def setchannel(self, interaction : discord.Interaction, text_channel : discord.TextChannel):
         await helpers.on_set_channel(interaction, text_channel)
 
-    @commands.command(name='send_brawl_created')
-    async def send_brawl_created(self, ctx):
-        request = BrawlRequest(817238795966611466, ctx.author, 100)
-        request.set_terms(["hi","helo"])
-        request.set_title("Brawl Title")
-        await ctx.send(embed=embeds.brawl_created_embed(request))
-
-    @commands.command(name='send_brawl_started')
-    async def send_brawl_started(self, ctx):
-        request = BrawlRequest(817238795966611466, ctx.author, 100)
-        request.set_terms(["hi","helo"])
-        request.set_title("Brawl Title")
-        response = BrawlResponse(request, ctx.author, ["hi","helo"])
-        pre_game = BrawlPreGame(request, response)
-        await ctx.send(embed=embeds.brawl_started_embed(pre_game))
-
-    @commands.command(name='send_brawl_cancel_request')
-    async def send_brawl_cancel_request(self, ctx):
-        request = BrawlRequest(817238795966611466, ctx.author, 100)
-        request.set_terms(["hi","helo"])
-        request.set_title("Brawl Title")
-        await ctx.send(embed=embeds.brawl_request_cancelled_embed(request))
-
-    @commands.command(name='send_pre_game')
-    async def send_pre_game(self, ctx):
-        request = BrawlRequest(817238795966611466, ctx.author, 100)
-        request.set_terms(["hi","helo"])
-        request.set_title("Brawl Title")
-        response = BrawlResponse(request, ctx.author, ["hi","helo"])
-        pre_game = BrawlPreGame(request, response)
-        await ctx.send(embed=embeds.brawl_pre_game_embed(pre_game))
-
-    @commands.command(name='send_post_game')
-    async def send_post_game(self, ctx):
-        request = BrawlRequest(817238795966611466, ctx.author, 100)
-        request.set_terms(["hi","helo"])
-        request.set_title("Brawl Title")
-        response = BrawlResponse(request, ctx.author, ["hi","helo"])
-        pre_game = BrawlPreGame(request, response)
-        post_game = BrawlPostGame(pre_game, ctx.author)
-        await ctx.send(embed=embeds.brawl_post_game_embed(post_game))
-
-    @commands.command(name='send_brawl_cancelled')
-    async def send_brawl_cancelled(self, ctx):
-        request = BrawlRequest(817238795966611466, ctx.author, 100)
-        request.set_terms(["hi","helo"])
-        request.set_title("Brawl Title")
-        response = BrawlResponse(request, ctx.author, ["hi","helo"])
-        pre_game = BrawlPreGame(request, response)
-        await ctx.send(embed=embeds.brawl_cancelled_embed(pre_game, ctx.author))
-
     @start.error
     async def start_error(self, interaction, error):
         await interaction.response.send_message('No brawl channel set for this server.', ephemeral=True)

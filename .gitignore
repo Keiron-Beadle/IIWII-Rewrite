@@ -3,3 +3,4 @@ __pycache__/
 *.py[cod]
 .vscode/launch.json
 wavelink/*
+models/stock_images/*
